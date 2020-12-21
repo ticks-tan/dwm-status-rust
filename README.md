@@ -1,4 +1,4 @@
-# rs_blocks
+# rsblocks
 A minimal fast dwm status bar written in **Rust** 🦀
 <p>
 <img align="center" src="./screenshots/1.png"/>
@@ -24,10 +24,10 @@ cargo build --release
 ```
 move the executable somewhere in your **PATH** (assuming you are in the root dir of the project)
 ```sh
-mv ./target/release/rs_blocks /usr/local/bin
+mv ./target/release/rsblocks /usr/local/bin
 ```
 
-you good to go now and can run `rs_blocks` from your terminal or put that in your `.xinitrc`
+you good to go now and can run `rsblocks` from your terminal or put that in your `.xinitrc`
 
 ## Contributions
 All Contributions are welcome.
