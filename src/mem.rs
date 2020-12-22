@@ -1,7 +1,10 @@
 use std::fs::File;
 use std::io::Read;
+
+use crate::load_config::Settings;
+
 //MemUsed = Memtotal + Shmem - MemFree - Buffers - Cached - SReclaimable
-pub fn mem() -> Result<String, std::io::Error> {
+pub fn mem(setting: &Settings) -> Result<String, std::io::Error> {
     let mut buf = String::new();
 
     File::open("/proc/meminfo")?.read_to_string(&mut buf)?;
@@ -48,9 +51,17 @@ pub fn mem() -> Result<String, std::io::Error> {
     let mem_used = (mem_total + shmem - mem_free - mem_buffers - mem_cached - mem_srecl) / 1024;
     let result: String;
     if mem_used > 1000 {
-        result = format!("  ▦  {:.1}G  │", mem_used as f32 / 1000.0);
+        result = format!(
+            "  {}  {:.1}G  {}",
+            setting.memory.icon,
+            mem_used as f32 / 1000.0,
+            setting.seperator
+        );
     } else {
-        result = format!("  ▦  {}M  │", mem_used);
+        result = format!(
+            "  {}  {}M  {}",
+            setting.memory.icon, mem_used, setting.seperator
+        );
     }
     Ok(result)
 }

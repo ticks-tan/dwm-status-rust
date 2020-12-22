@@ -4,15 +4,18 @@ use std::time::Duration;
 
 mod date;
 mod disk;
+mod load_config;
 mod mem;
 
 fn main() {
+    let settings = load_config::load().unwrap();
+
     loop {
         let args = format!(
             "{}{}{}",
-            disk::disk_free(),
-            mem::mem().unwrap(),
-            date::fmt_date("%d %b, %I:%M:%S %p")
+            disk::disk_free(&settings),
+            mem::mem(&settings).unwrap(),
+            date::fmt_date(&settings)
         );
 
         Command::new("xsetroot")

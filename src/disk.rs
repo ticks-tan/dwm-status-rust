@@ -1,6 +1,7 @@
+use crate::load_config::Settings;
 use std::process::Command;
 
-pub fn disk_free() -> String {
+pub fn disk_free(setting: &Settings) -> String {
     let cmd = Command::new("sh")
         .arg("-c")
         .args(&["df -h"])
@@ -15,5 +16,8 @@ pub fn disk_free() -> String {
             break;
         }
     }
-    format!("    {}  │", disk_used)
+    format!(
+        "  {}  {}  {}",
+        setting.disk.icon, disk_used, setting.seperator
+    )
 }

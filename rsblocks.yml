@@ -1,0 +1,15 @@
+# This is the full configuration template available for rsblocks tool
+# the names are clearly defines itself.
+
+general:
+  seperator: '┃'
+
+time:
+  icon: ''
+  format: '%d %b, %I:%M:%S %p'
+
+memory:
+  icon: '▦'
+
+disk:
+  icon: ''

@@ -1,11 +1,13 @@
-use std::process::Command;
+use crate::load_config::Settings;
+use chrono::prelude::*;
 
-pub fn fmt_date(ft: &str) -> String {
-    let cmd = format!("date +\"{}\"", ft);
-    let cmd = Command::new("sh").arg("-c").args(&[cmd]).output().unwrap();
-    let result = String::from_utf8_lossy(&cmd.stdout)
-        .to_string()
-        .trim()
-        .to_string();
-    format!("    {}  │", result)
+pub fn fmt_date(setting: &Settings) -> String {
+    let now = Local::now();
+
+    format!(
+        "  {}  {}  {}",
+        setting.time.icon,
+        now.format(&setting.time.format),
+        setting.seperator
+    )
 }
