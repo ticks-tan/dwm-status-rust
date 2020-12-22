@@ -8,7 +8,8 @@ A minimal fast dwm status bar written in **Rust** 🦀
 * Time/Date
 * Used Memory
 * Used Disk space
-* Minimal, Fast
+* Easy to configure
+* Minimal
 
 ## Note
 This tool is still in development stage.
@@ -28,6 +29,20 @@ mv ./target/release/rsblocks /usr/local/bin
 ```
 
 you good to go now and can run `rsblocks` from your terminal or put that in your `.xinitrc`
+
+## Configuration
+**rsblocks** will try to read the file `~/.config/rsblocks/rsblocks.yml`, if it does not exist, it will load the defaults.
+
+create the directory
+```sh
+mkdir ~/.config/rsblocks
+```
+
+copy the [template](./rsblocks.yml) to the new config directory (assuming you are in the root dir of the repo)
+```sh
+cp ./rsblocks.yml ~/.config/rsblocks/rsblocks.yml
+```
+
 
 ## Contributions
 All Contributions are welcome.
