@@ -9,7 +9,14 @@ time:
   format: '%d %b, %I:%M:%S %p'
 
 memory:
+  enable: true
   icon: '▦'
 
 disk:
+  enable: true
   icon: ''
+
+# reads from amixer
+volume:
+  enable: false
+  icon: ''
