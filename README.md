@@ -8,6 +8,7 @@ A minimal fast dwm status bar written in **Rust** 🦀
 * Time/Date
 * Used Memory
 * Used Disk space
+* Sound volume _reads from `amixer` for now_
 * Easy to configure
 * Minimal
 
