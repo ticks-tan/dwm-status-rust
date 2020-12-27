@@ -11,14 +11,15 @@ pub fn get_sound(setting: &Settings) -> String {
         .output()
         .unwrap();
 
-    let vol: String = String::from_utf8_lossy(&cmd_content.stdout)
-        .split('\n')
-        .collect::<Vec<&str>>()[4]
+    let mut vol: String = String::from_utf8_lossy(&cmd_content.stdout)
+        .lines()
+        .last()
+        .expect("failed to get sound volume")
         .split('[')
         .collect::<Vec<&str>>()[1]
-        .split(']')
-        .collect::<Vec<&str>>()[0]
+        .trim()
         .to_string();
+    vol.remove(vol.len() - 1);
 
     format!("  {}  {}  {}", setting.volume.icon, vol, setting.seperator)
 }
