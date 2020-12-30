@@ -6,20 +6,20 @@ use std::process::Command;
 
 pub fn get_sound(setting: &Settings) -> String {
     let cmd_content = Command::new("amixer")
-        .arg("get")
-        .arg("Master")
+        .args(&["-D", "pulse", "get", "Master"])
         .output()
-        .unwrap();
+        .expect("Make sure that you have alsa-utils installed on your system");
 
-    let mut vol: String = String::from_utf8_lossy(&cmd_content.stdout)
+    let vol: String = String::from_utf8_lossy(&cmd_content.stdout)
         .lines()
         .last()
         .expect("failed to get sound volume")
         .split('[')
         .collect::<Vec<&str>>()[1]
+        .split(']')
+        .collect::<Vec<&str>>()[0]
         .trim()
         .to_string();
-    vol.remove(vol.len() - 1);
 
     format!("  {}  {}  {}", setting.volume.icon, vol, setting.seperator)
 }
