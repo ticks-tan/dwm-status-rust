@@ -8,6 +8,8 @@ mod load_config;
 mod mem;
 mod sound;
 
+// TODO: this is sucks, maybe thread, i want to spawn some threads
+
 fn main() {
     let settings = load_config::load().unwrap();
     sound::get_sound(&settings);
@@ -39,6 +41,6 @@ fn main() {
             .output()
             .unwrap();
 
-        thread::sleep(Duration::new(1, 0));
+        thread::sleep(Duration::from_millis(75));
     }
 }

@@ -15,8 +15,14 @@ A minimal fast dwm status bar written in **Rust** 🦀
 ## Note
 This tool is still in development stage.
 
-## Install
-clone the repo
+## Cargo Installation
+You can install the binary crate directly
+```sh
+cargo install rsblocks
+```
+
+## Manual Installation
+You can clone the repo and build from the source code
 ```sh
 git clone https://github.com/mustafasalih1993/rsblocks
 ```
