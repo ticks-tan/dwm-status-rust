@@ -1,19 +1,21 @@
 # rsblocks
-A minimal fast dwm status bar written in **Rust** 🦀
+A minimal multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 <p>
 <img align="center" src="./screenshots/1.png"/>
 </p><br/>
 
 ## Features
+* Multi Threads
 * Time/Date
 * Used Memory
 * Used Disk space
-* Sound volume _reads from `amixer` for now_
-* Easy to configure
-* Minimal
+* Sound volume _reads from `alsa-utils` for now_
+* Easy to configure with `rsblocks.yml` file
 
-## Note
-This tool is still in development stage.
+
+## Notes
+* This tool is still in development stage.
+* currently supports only linux.
 
 ## Cargo Installation
 You can install the binary crate directly
@@ -38,7 +40,9 @@ mv ./target/release/rsblocks /usr/local/bin
 you good to go now and can run `rsblocks` from your terminal or put that in your `.xinitrc`
 
 ## Configuration
-**rsblocks** will try to read the file `~/.config/rsblocks/rsblocks.yml`, if it does not exist, it will load the defaults.
+#### Notes:
+* **rsblocks** will try to read the file `$HOME/.config/rsblocks/rsblocks.yml`, if it does not exist, it will load the defaults.
+* **rsblocks** will read the configuration file **only** on startup, which means you have to kill it and start it again if you updated your `rsblocks.yml` file.
 
 create the directory
 ```sh

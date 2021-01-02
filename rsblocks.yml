@@ -1,22 +1,28 @@
 # This is the full configuration template available for rsblocks tool
 # the names are clearly defines itself.
 
+# NOTE: the (delay) is **seconds** with the float point to update the item in the bar.
+
 general:
   seperator: '┃'
 
 time:
   icon: ''
   format: '%d %b, %I:%M:%S %p'
+  delay: 1.0
 
 memory:
   enable: true
   icon: '▦'
+  delay: 2.0
 
 disk:
   enable: true
   icon: ''
+  delay: 120.0
 
-# reads from amixer
+# reads from alsa-utils
 volume:
   enable: false
   icon: ''
+  delay: 0.18
