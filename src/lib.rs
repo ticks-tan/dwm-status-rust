@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use minreq;
 use std::env;
 use std::fs::File;
 use std::io::Error;
@@ -15,6 +16,7 @@ pub enum ThreadsData {
     Disk(String),
     Memory(String),
     Time(String),
+    Weather(String),
 }
 
 #[derive(Clone)]
@@ -24,6 +26,7 @@ pub struct Config {
     pub memory: Memory,
     pub disk: Disk,
     pub volume: Volume,
+    pub weather: Weather,
 }
 
 #[derive(Clone)]
@@ -53,6 +56,24 @@ pub struct Volume {
     pub delay: f64,
 }
 
+#[derive(Clone)]
+pub struct Weather {
+    pub city: String,
+    pub format: String,
+    pub icon: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
+
+/*
+// TODO: error handling required if rsblocks.yml file is empty
+
+this function is responsible to check if the rsblocks.yml file
+exists to call parse_config to read it OTHERWISE
+it will call load_defaults to load a hardcoded default configuration
+
+it will always return a valid configuration inside a Result.
+*/
 pub fn load_config() -> Result<Config, Error> {
     let yml_source = env::var("HOME").unwrap() + "/.config/rsblocks/rsblocks.yml";
     let mut data = String::new();
@@ -64,12 +85,14 @@ pub fn load_config() -> Result<Config, Error> {
         }
     };
     file.read_to_string(&mut data)?;
-
     let yml_content = &YamlLoader::load_from_str(&data).unwrap()[0];
     let config = parse_config(yml_content);
     Ok(config)
 }
 
+/*
+this is simply returns a hardcoded configuration as default
+*/
 fn load_defaults() -> Config {
     Config {
         seperator: String::from("|"),
@@ -93,28 +116,47 @@ fn load_defaults() -> Config {
             enabled: false,
             delay: 0.17,
         },
+        weather: Weather {
+            city: String::from(""),
+            format: String::from("+%t"),
+            icon: String::from(""),
+            enabled: false,
+            delay: 7200.0, //7200 seconds = 2 hours
+        },
     }
 }
 
+/*
+it will read and parse the rsblocks.yml file content and return a valid configuration
+IF some content is missing in the rsblocks.yml file, it will set
+a default values to that
+*/
 fn parse_config(doc: &yaml::Yaml) -> Config {
     // parsing icons and set default if not exist in the config file
     let seperator = get_or_set_string(doc, "general", "seperator", "|");
     let time_icon = get_or_set_string(doc, "time", "icon", "");
-    let time_format = get_or_set_string(doc, "time", "format", "%T");
     let mem_icon = get_or_set_string(doc, "memory", "icon", "");
     let disk_icon = get_or_set_string(doc, "disk", "icon", "");
     let volume_icon = get_or_set_string(doc, "volume", "icon", "");
+    let weather_icon = get_or_set_string(doc, "weather", "icon", "");
+
+    //parsing formats and city weather
+    let time_format = get_or_set_string(doc, "time", "format", "%T");
+    let weather_format = get_or_set_string(doc, "weather", "format", "%l:+%t");
+    let weather_city = get_or_set_string(doc, "weather", "city", "");
 
     // parsing enabled state (everything false by default)
     let disk_enabled = get_or_set_bool(doc, "disk", "enable");
     let memory_enabled = get_or_set_bool(doc, "memory", "enable");
     let volume_enabled = get_or_set_bool(doc, "volume", "enable");
+    let weather_enabled = get_or_set_bool(doc, "weather", "enable");
 
     // parsing update_delay state (should be all seconds in f64 type)
     let time_delay = get_or_set_f32(doc, "time", "delay", 1.0);
-    let disk_delay = get_or_set_f32(doc, "disk", "delay", 60.0);
+    let disk_delay = get_or_set_f32(doc, "disk", "delay", 120.0);
     let memory_delay = get_or_set_f32(doc, "memory", "delay", 2.0);
     let volume_delay = get_or_set_f32(doc, "volume", "delay", 0.17);
+    let weather_delay = get_or_set_f32(doc, "weather", "delay", 7200.0);
 
     Config {
         seperator,
@@ -137,6 +179,13 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             icon: volume_icon,
             enabled: volume_enabled,
             delay: volume_delay,
+        },
+        weather: Weather {
+            city: weather_city,
+            format: weather_format,
+            icon: weather_icon,
+            enabled: weather_enabled,
+            delay: weather_delay,
         },
     }
 }
@@ -222,6 +271,19 @@ pub fn run(config: Config) {
         });
     }
 
+    // Weather thread
+    if config.weather.enabled {
+        let weather_tx = tx.clone();
+        let configcp = config.clone();
+        let weather_data = get_weather(&configcp);
+        let mut weather_data = ThreadsData::Weather(weather_data);
+        thread::spawn(move || loop {
+            weather_tx.send(weather_data).unwrap();
+            weather_data = ThreadsData::Weather(get_weather(&configcp));
+            thread::sleep(Duration::from_secs_f64(configcp.weather.delay))
+        });
+    }
+
     // Time thread
     {
         let time_tx = tx;
@@ -238,14 +300,15 @@ pub fn run(config: Config) {
     {
         // NOTE: order matters to the final format
 
-        let mut bar: Vec<String> = vec!["".to_string(); 4];
+        let mut bar: Vec<String> = vec!["".to_string(); 5];
         //iterating the values recieved from the threads
         for data in rx {
             match data {
                 ThreadsData::Sound(x) => bar[0] = x,
-                ThreadsData::Disk(x) => bar[1] = x,
-                ThreadsData::Memory(x) => bar[2] = x,
-                ThreadsData::Time(x) => bar[3] = x,
+                ThreadsData::Weather(x) => bar[1] = x,
+                ThreadsData::Disk(x) => bar[2] = x,
+                ThreadsData::Memory(x) => bar[3] = x,
+                ThreadsData::Time(x) => bar[4] = x,
             }
 
             // match ends here
@@ -254,6 +317,9 @@ pub fn run(config: Config) {
     }
 }
 
+/*
+this will call the command 'xsetroot -name <the arg>'
+*/
 pub fn update(bar: &Vec<String>) {
     // TODO: FIX ME, this solution sucks
     let mut x = String::new();
@@ -276,6 +342,7 @@ pub fn update(bar: &Vec<String>) {
 
 ############################# HELPER FUNCTIONS BELOW ###################################
 */
+
 pub fn get_time(config: &Config) -> String {
     let now = Local::now();
 
@@ -285,6 +352,30 @@ pub fn get_time(config: &Config) -> String {
         now.format(&config.time.format),
         config.seperator
     )
+}
+
+/*
+CREDIT: thanks for wttr.in to use their API
+will make a GET request from wttr.in
+*/
+fn get_weather(config: &Config) -> String {
+    let format = if config.weather.format.is_empty() {
+        String::from("%l:+%t")
+    } else {
+        config.weather.format.clone()
+    };
+
+    let url = format!("http://wttr.in/{}?format=\"{}", config.weather.city, format);
+    let err_string = String::from("Error");
+    let res = match minreq::get(url).send() {
+        Ok(resp) => match resp.as_str() {
+            Ok(res_str) => res_str.trim_matches('"').to_string(),
+            Err(_) => err_string,
+        },
+        Err(_) => err_string,
+    };
+
+    format!("  {}  {}  {}", config.weather.icon, res, config.seperator)
 }
 
 pub fn get_disk(config: &Config) -> String {
@@ -308,7 +399,7 @@ pub fn get_disk(config: &Config) -> String {
     )
 }
 
-// TODO: what a horrible solution to get the sound, i dont like it
+// FIX ME: what a horrible solution to get the sound, i dont like it
 //       find another way
 
 pub fn get_volume(config: &Config) -> String {
@@ -331,6 +422,11 @@ pub fn get_volume(config: &Config) -> String {
     format!("  {}  {}  {}", config.volume.icon, vol, config.seperator)
 }
 
+/*
+mem_used = (mem_total + shmem - mem_free - mem_buffers - mem_cached - mem_srecl
+thanks for htop's developer on stackoverflow for providing this algorithm to
+calculate used memory.
+*/
 pub fn get_memory(config: &Config) -> Result<String, std::io::Error> {
     let mut buf = String::new();
 
@@ -392,7 +488,12 @@ pub fn get_memory(config: &Config) -> Result<String, std::io::Error> {
     }
     Ok(result)
 }
-// helper function for the get_memory function
+
+/*
+this helper function will split the line(first argument) by the character(:)
+and then parse the right splited item as u32
+then assign that to the "assignable"(2nd argument).
+*/
 fn assign_val(line: &str, assignable: &mut u32) {
     let parsed: u32 = line.split(':').collect::<Vec<&str>>()[1]
         .trim()

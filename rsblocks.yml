@@ -1,28 +1,47 @@
-# This is the full configuration template available for rsblocks tool
-# the names are clearly defines itself.
+# This is the full configuration template available for rsblocks.
 
-# NOTE: the (delay) is **seconds** with the float point to update the item in the bar.
+# NOTE: the (delay) is in **SECONDS** and the float point "." is required.
 
 general:
   seperator: '┃'
 
+  
 time:
   icon: ''
   format: '%d %b, %I:%M:%S %p'
   delay: 1.0
 
+  
 memory:
   enable: true
   icon: '▦'
   delay: 2.0
 
+  
 disk:
   enable: true
   icon: ''
   delay: 120.0
 
-# reads from alsa-utils
+  
+# reads from alsa, alsa-utils package should
+# be installed on the system to make it work.
 volume:
   enable: false
   icon: ''
   delay: 0.18
+
+
+# weather format options is available on
+# https://github.com/chubin/wttr.in
+# NOTES:
+#       - if the city field set to empty, it will try to read location automatically.
+#       - if you have multiple formats and want to insert space between them use '+' instead.
+#       - giving (city) a value is recommended.
+weather:
+  enable: true
+  icon: ''
+  city: ''        
+  format: '%l:+%t'
+  delay: 7200.0   # 7200 seconds = 2 hours
+
