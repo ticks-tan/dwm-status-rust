@@ -1,6 +1,6 @@
 [package]
 name = "rsblocks"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["mustafa salih <mustafasalih1991@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -13,3 +13,4 @@ description = "a multi threaded status bar for dwm window manager for linux"
 [dependencies]
 chrono = "0.4"
 yaml-rust = "0.4"
+minreq = "2.2.1"
