@@ -27,9 +27,10 @@ disk:
 # reads from alsa, alsa-utils package should
 # be installed on the system to make it work.
 volume:
-  enable: false
+  enable: true
   icon: ''
   delay: 0.18
+  card: 'PULSE'
 
 
 # weather format options is available on

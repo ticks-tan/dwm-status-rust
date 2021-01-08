@@ -14,3 +14,9 @@ description = "a multi threaded status bar for dwm window manager for linux"
 chrono = "0.4"
 yaml-rust = "0.4"
 minreq = "2.2.1"
+alsa = "0.4.3"
+nix = "0.19.1"
+
+[dependencies.breadx]
+version = "0.1.11"
+features = ["async"]
