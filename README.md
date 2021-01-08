@@ -1,7 +1,7 @@
 # rsblocks
 [<img alt="github" src="https://img.shields.io/static/v1?label=github&message=rsblocks&color=acb0d0&logo=Github&style=flat-square&logoColor=a9b1d6" height="20">](https://github.com/MustafaSalih1993/rsblocks)
 [<img alt="crates" src="https://img.shields.io/crates/v/rsblocks?logo=rust&logoColor=a9b1d6&style=flat-square&color=fc8d62" height="20">](https://crates.io/crates/rsblocks)
-[<img alt="build" src="https://img.shields.io/github/workflow/status/mustafasalih1993/rsblocks/Rust?color=b9f27c&logoColor=a9b1d6&style=flat-square" height="20">](https://github.com/MustafaSalih1993/rsblocks/actions?query=workflow%3ARust)
+
 
 A multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 <p>
@@ -14,7 +14,7 @@ A multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 * Memory Usage
 * Disk Usage
 * Weather Temperature
-* Sound volume _reads from `alsa-utils`_
+* Sound volume
 * Easy to configure with `rsblocks.yml` file
 
 
