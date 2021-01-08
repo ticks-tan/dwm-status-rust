@@ -1,13 +1,13 @@
+use breadx::{display::*, window::Window};
 use chrono::prelude::*;
 use minreq;
-use std::env;
 use std::fs::File;
 use std::io::Error;
 use std::io::Read;
-use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use alsa::mixer::{Mixer, SelemChannelId, SelemId};
 use yaml_rust::{yaml, YamlLoader};
 
 #[derive(Debug)]
@@ -54,6 +54,7 @@ pub struct Volume {
     pub icon: String,
     pub enabled: bool,
     pub delay: f64,
+    pub card: String
 }
 
 #[derive(Clone)]
@@ -75,7 +76,7 @@ it will call load_defaults to load a hardcoded default configuration
 it will always return a valid configuration inside a Result.
 */
 pub fn load_config() -> Result<Config, Error> {
-    let yml_source = env::var("HOME").unwrap() + "/.config/rsblocks/rsblocks.yml";
+    let yml_source = std::env::var("HOME").unwrap() + "/.config/rsblocks/rsblocks.yml";
     let mut data = String::new();
     let mut file = match File::open(&yml_source) {
         Ok(file) => file,
@@ -115,6 +116,7 @@ fn load_defaults() -> Config {
             icon: String::from(""),
             enabled: false,
             delay: 0.17,
+            card: String::from("ALSA")
         },
         weather: Weather {
             city: String::from(""),
@@ -157,6 +159,9 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let memory_delay = get_or_set_f32(doc, "memory", "delay", 2.0);
     let volume_delay = get_or_set_f32(doc, "volume", "delay", 0.17);
     let weather_delay = get_or_set_f32(doc, "weather", "delay", 7200.0);
+    
+    // parsing card for volume, ALSA or PULSE
+    let volume_card = get_or_set_string(doc, "volume", "card", "ALSA");
 
     Config {
         seperator,
@@ -179,6 +184,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             icon: volume_icon,
             enabled: volume_enabled,
             delay: volume_delay,
+            card: volume_card
         },
         weather: Weather {
             city: weather_city,
@@ -231,18 +237,37 @@ fn get_or_set_string(doc: &yaml::Yaml, parent: &str, child: &str, default_val: &
 TODO: this is sucks, repeated code in threads below, fix me you fucking asshole
  */
 
-pub fn run(config: Config) {
-    let (tx, rx) = mpsc::channel();
+pub struct Blocks {
+    disp: Display<name::NameConnection>,
+    root: Window,
+}
 
+impl Blocks {
+    pub fn new() -> Self {
+        let disp = Display::create(None, None).expect("Failed to create x11 connection");
+        let root = disp.default_screen().root;
+        Self {
+            disp,
+            root,
+        }
+    }
+}
+
+pub fn run(config: Config, mut blocks: Blocks) {
+    let (tx, rx) = mpsc::channel();
     // volume thread
     if config.volume.enabled {
         let volume_tx = tx.clone();
         let configcp = config.clone();
-        let mut vol_data = ThreadsData::Sound(get_volume(&configcp));
-        thread::spawn(move || loop {
-            let _ = volume_tx.send(vol_data);
-            vol_data = ThreadsData::Sound(get_volume(&configcp));
-            thread::sleep(Duration::from_secs_f64(configcp.volume.delay))
+        thread::spawn(move || {
+            let mut vol_data =
+                ThreadsData::Sound(get_volume(&configcp));
+            loop {
+                let _ = volume_tx.send(vol_data);
+                vol_data =
+                    ThreadsData::Sound(get_volume(&configcp));
+                thread::sleep(Duration::from_secs_f64(configcp.volume.delay))
+            }
         });
     }
 
@@ -299,7 +324,6 @@ pub fn run(config: Config) {
     //Main
     {
         // NOTE: order matters to the final format
-
         let mut bar: Vec<String> = vec!["".to_string(); 5];
         //iterating the values recieved from the threads
         for data in rx {
@@ -312,25 +336,22 @@ pub fn run(config: Config) {
             }
 
             // match ends here
-            update(&bar);
+            update(&bar, &mut blocks);
         }
     }
 }
 
-/*
-this will call the command 'xsetroot -name <the arg>'
-*/
-pub fn update(bar: &Vec<String>) {
+pub fn update(bar: &Vec<String>, blocks: &mut Blocks) {
     // TODO: FIX ME, this solution sucks
     let mut x = String::new();
     for i in bar.iter() {
         x.push_str(i.as_str());
     }
-    Command::new("xsetroot")
-        .arg("-name")
-        .arg(x)
-        .output()
-        .unwrap();
+
+    blocks
+        .root
+        .set_title(&mut blocks.disp, &x)
+        .expect("Failed to set title of root");
 }
 
 /*############################ RUNNING THE PROGRAM ENDS HERE ###########################################*/
@@ -379,47 +400,47 @@ fn get_weather(config: &Config) -> String {
 }
 
 pub fn get_disk(config: &Config) -> String {
-    let cmd = Command::new("sh")
-        .arg("-c")
-        .args(&["df -h"])
-        .output()
-        .unwrap();
-    let output = String::from_utf8_lossy(&cmd.stdout);
+    const GB: u64 = (1024 * 1024) * 1024;
+    let statvfs = nix::sys::statvfs::statvfs("/").unwrap();
     let mut disk_used = String::new();
-    for line in output.lines() {
-        if line.ends_with('/') {
-            let splited = line.split_whitespace().collect::<Vec<&str>>();
-            disk_used = splited[2].to_string();
-            break;
-        }
-    }
+
+    let total = (statvfs.blocks() * statvfs.fragment_size()) / GB;
+    let available = (statvfs.blocks_free() * statvfs.fragment_size()) / GB;
+    let used = total - available;
+
+    disk_used.push_str(&format!("{}GB", used));
     format!(
         "  {}  {}  {}",
         config.disk.icon, disk_used, config.seperator
     )
 }
 
-// FIX ME: what a horrible solution to get the sound, i dont like it
-//       find another way
-
 pub fn get_volume(config: &Config) -> String {
-    let cmd_content = Command::new("amixer")
-        .args(&["-D", "pulse", "get", "Master"])
-        .output()
-        .expect("Make sure that you have alsa-utils installed on your system");
+    let card = if config.volume.card == "PULSE" {
+        "pulse"
+    } else {
+        "default"
+    };
 
-    let vol: String = String::from_utf8_lossy(&cmd_content.stdout)
-        .lines()
-        .last()
-        .expect("failed to get sound volume")
-        .split('[')
-        .collect::<Vec<&str>>()[1]
-        .split(']')
-        .collect::<Vec<&str>>()[0]
-        .trim()
-        .to_string();
+    let mixer = Mixer::new(card, false).expect("Failed to open mixer");
+    let selem_id = SelemId::new("Master", 0);
+    let selem = mixer.find_selem(&selem_id).expect("Couldn't find selem");
+    let selem_chan_id = SelemChannelId::FrontLeft;
+    
+    let (min, max) = selem.get_playback_volume_range();
+    let mut raw_volume = selem
+        .get_playback_volume(selem_chan_id)
+        .expect("Failed to get raw_volume");
+    
+    let range = max - min;
+    let vol = if range == 0 {
+       0 
+    } else {
+        raw_volume -= min;
+        ((raw_volume as f64 / range as f64) * 100.) as u64
+    };
 
-    format!("  {}  {}  {}", config.volume.icon, vol, config.seperator)
+    format!("  {}  {}%  {}", config.volume.icon, vol, config.seperator)
 }
 
 /*
