@@ -27,9 +27,10 @@ disk:
 # reads from alsa, alsa-utils package should
 # be installed on the system to make it work.
 volume:
-  enable: false
+  enable: true
   icon: ''
   delay: 0.18
+  card: 'PULSE'
 
 
 # weather format options is available on
@@ -45,3 +46,15 @@ weather:
   format: '%l:+%t'
   delay: 7200.0   # 7200 seconds = 2 hours
 
+
+battery:
+  source: 'BAT0'
+  icon: ''
+  enable: false
+  delay: 120.0
+  
+
+cpu_temperature:
+  icon: ''
+  enable: true
+  delay: 120.0

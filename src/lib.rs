@@ -1,10 +1,10 @@
+use alsa::mixer::{Mixer, SelemChannelId, SelemId};
+use breadx::{display::*, window::Window};
 use chrono::prelude::*;
 use minreq;
-use std::env;
 use std::fs::File;
 use std::io::Error;
 use std::io::Read;
-use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -17,6 +17,8 @@ pub enum ThreadsData {
     Memory(String),
     Time(String),
     Weather(String),
+    Battery(String),
+    CpuTemp(String),
 }
 
 #[derive(Clone)]
@@ -27,6 +29,8 @@ pub struct Config {
     pub disk: Disk,
     pub volume: Volume,
     pub weather: Weather,
+    pub battery: Battery,
+    pub cpu_temperature: CpuTemp,
 }
 
 #[derive(Clone)]
@@ -54,6 +58,7 @@ pub struct Volume {
     pub icon: String,
     pub enabled: bool,
     pub delay: f64,
+    pub card: String,
 }
 
 #[derive(Clone)]
@@ -65,17 +70,44 @@ pub struct Weather {
     pub delay: f64,
 }
 
-/*
-// TODO: error handling required if rsblocks.yml file is empty
+#[derive(Clone)]
+pub struct Battery {
+    pub source: String,
+    pub icon: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
 
-this function is responsible to check if the rsblocks.yml file
+#[derive(Clone)]
+pub struct CpuTemp {
+    pub icon: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
+
+/*                            TODOS
+
+    TODO 1: Error handling required if rsblocks.yml file is empty.
+
+    TODO 2: This lib file growing and soon it will be annoying to move
+            arround, need fix soon.
+
+    TODO 3: Need a better comments in code, or no one will understand what happens.
+
+    TODO 4: Need a documentation.
+
+    TODO 5: Fix repeated code for threads in `run` function.
+
+*/
+
+/*this function is responsible to check if the rsblocks.yml file
 exists to call parse_config to read it OTHERWISE
 it will call load_defaults to load a hardcoded default configuration
 
 it will always return a valid configuration inside a Result.
 */
 pub fn load_config() -> Result<Config, Error> {
-    let yml_source = env::var("HOME").unwrap() + "/.config/rsblocks/rsblocks.yml";
+    let yml_source = std::env::var("HOME").unwrap() + "/.config/rsblocks/rsblocks.yml";
     let mut data = String::new();
     let mut file = match File::open(&yml_source) {
         Ok(file) => file,
@@ -115,6 +147,7 @@ fn load_defaults() -> Config {
             icon: String::from(""),
             enabled: false,
             delay: 0.17,
+            card: String::from("ALSA"),
         },
         weather: Weather {
             city: String::from(""),
@@ -122,6 +155,17 @@ fn load_defaults() -> Config {
             icon: String::from(""),
             enabled: false,
             delay: 7200.0, //7200 seconds = 2 hours
+        },
+        battery: Battery {
+            source: String::from("BAT0"),
+            icon: String::from(""),
+            enabled: false,
+            delay: 120.0,
+        },
+        cpu_temperature: CpuTemp {
+            icon: String::from(""),
+            enabled: false,
+            delay: 120.0,
         },
     }
 }
@@ -139,6 +183,8 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let disk_icon = get_or_set_string(doc, "disk", "icon", "");
     let volume_icon = get_or_set_string(doc, "volume", "icon", "");
     let weather_icon = get_or_set_string(doc, "weather", "icon", "");
+    let battery_icon = get_or_set_string(doc, "battery", "icon", "");
+    let cpu_temperature_icon = get_or_set_string(doc, "cpu_temperature", "icon", "");
 
     //parsing formats and city weather
     let time_format = get_or_set_string(doc, "time", "format", "%T");
@@ -150,13 +196,23 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let memory_enabled = get_or_set_bool(doc, "memory", "enable");
     let volume_enabled = get_or_set_bool(doc, "volume", "enable");
     let weather_enabled = get_or_set_bool(doc, "weather", "enable");
+    let battery_enabled = get_or_set_bool(doc, "battery", "enable");
+    let cpu_temperature_enabled = get_or_set_bool(doc, "cpu_temperature", "enable");
 
     // parsing update_delay state (should be all seconds in f64 type)
-    let time_delay = get_or_set_f32(doc, "time", "delay", 1.0);
-    let disk_delay = get_or_set_f32(doc, "disk", "delay", 120.0);
-    let memory_delay = get_or_set_f32(doc, "memory", "delay", 2.0);
-    let volume_delay = get_or_set_f32(doc, "volume", "delay", 0.17);
-    let weather_delay = get_or_set_f32(doc, "weather", "delay", 7200.0);
+    let time_delay = get_or_set_f64(doc, "time", "delay", 1.0);
+    let disk_delay = get_or_set_f64(doc, "disk", "delay", 120.0);
+    let memory_delay = get_or_set_f64(doc, "memory", "delay", 2.0);
+    let volume_delay = get_or_set_f64(doc, "volume", "delay", 0.17);
+    let weather_delay = get_or_set_f64(doc, "weather", "delay", 7200.0);
+    let battery_delay = get_or_set_f64(doc, "battery", "delay", 120.0);
+    let cpu_temperature_delay = get_or_set_f64(doc, "cpu_temperature", "delay", 120.0);
+
+    // parsing card for volume, ALSA or PULSE
+    let volume_card = get_or_set_string(doc, "volume", "card", "ALSA");
+
+    // parsing battery source name
+    let battery_source = get_or_set_string(doc, "battery", "source", "BAT0");
 
     Config {
         seperator,
@@ -179,6 +235,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             icon: volume_icon,
             enabled: volume_enabled,
             delay: volume_delay,
+            card: volume_card,
         },
         weather: Weather {
             city: weather_city,
@@ -187,11 +244,22 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             enabled: weather_enabled,
             delay: weather_delay,
         },
+        battery: Battery {
+            source: battery_source,
+            icon: battery_icon,
+            enabled: battery_enabled,
+            delay: battery_delay,
+        },
+        cpu_temperature: CpuTemp {
+            icon: cpu_temperature_icon,
+            enabled: cpu_temperature_enabled,
+            delay: cpu_temperature_delay,
+        },
     }
 }
 
 // getting a f32 value from rsblocks.yml file or set default (last argument)
-fn get_or_set_f32(doc: &yaml::Yaml, parent: &str, child: &str, default: f64) -> f64 {
+fn get_or_set_f64(doc: &yaml::Yaml, parent: &str, child: &str, default: f64) -> f64 {
     let val: f64 = if doc[parent][child].is_badvalue() {
         default
     } else {
@@ -227,20 +295,30 @@ fn get_or_set_string(doc: &yaml::Yaml, parent: &str, child: &str, default_val: &
 
 */
 
-/* Running the program:
-TODO: this is sucks, repeated code in threads below, fix me you fucking asshole
- */
+// Running the program:
 
-pub fn run(config: Config) {
+pub struct Blocks {
+    disp: Display<name::NameConnection>,
+    root: Window,
+}
+
+impl Blocks {
+    pub fn new() -> Self {
+        let disp = Display::create(None, None).expect("Failed to create x11 connection");
+        let root = disp.default_screen().root;
+        Self { disp, root }
+    }
+}
+
+pub fn run(config: Config, mut blocks: Blocks) {
     let (tx, rx) = mpsc::channel();
-
     // volume thread
     if config.volume.enabled {
         let volume_tx = tx.clone();
         let configcp = config.clone();
         let mut vol_data = ThreadsData::Sound(get_volume(&configcp));
         thread::spawn(move || loop {
-            let _ = volume_tx.send(vol_data);
+            volume_tx.send(vol_data).unwrap();
             vol_data = ThreadsData::Sound(get_volume(&configcp));
             thread::sleep(Duration::from_secs_f64(configcp.volume.delay))
         });
@@ -284,6 +362,32 @@ pub fn run(config: Config) {
         });
     }
 
+    // Battery thread
+    if config.battery.enabled {
+        let battery_tx = tx.clone();
+        let configcp = config.clone();
+        let battery_data = get_battery(&configcp).unwrap();
+        let mut battery_data = ThreadsData::Battery(battery_data);
+        thread::spawn(move || loop {
+            battery_tx.send(battery_data).unwrap();
+            battery_data = ThreadsData::Battery(get_battery(&configcp).unwrap());
+            thread::sleep(Duration::from_secs_f64(configcp.battery.delay))
+        });
+    }
+
+    // Cpu temperature thread
+    if config.cpu_temperature.enabled {
+        let cpu_temp_tx = tx.clone();
+        let configcp = config.clone();
+        let cpu_temp_data = get_cpu_temp(&configcp).unwrap();
+        let mut cpu_temp_data = ThreadsData::CpuTemp(cpu_temp_data);
+        thread::spawn(move || loop {
+            cpu_temp_tx.send(cpu_temp_data).unwrap();
+            cpu_temp_data = ThreadsData::CpuTemp(get_cpu_temp(&configcp).unwrap());
+            thread::sleep(Duration::from_secs_f64(configcp.cpu_temperature.delay))
+        });
+    }
+
     // Time thread
     {
         let time_tx = tx;
@@ -299,8 +403,7 @@ pub fn run(config: Config) {
     //Main
     {
         // NOTE: order matters to the final format
-
-        let mut bar: Vec<String> = vec!["".to_string(); 5];
+        let mut bar: Vec<String> = vec!["".to_string(); 7];
         //iterating the values recieved from the threads
         for data in rx {
             match data {
@@ -308,29 +411,28 @@ pub fn run(config: Config) {
                 ThreadsData::Weather(x) => bar[1] = x,
                 ThreadsData::Disk(x) => bar[2] = x,
                 ThreadsData::Memory(x) => bar[3] = x,
-                ThreadsData::Time(x) => bar[4] = x,
+                ThreadsData::CpuTemp(x) => bar[4] = x,
+                ThreadsData::Battery(x) => bar[5] = x,
+                ThreadsData::Time(x) => bar[6] = x,
             }
 
             // match ends here
-            update(&bar);
+            update(&bar, &mut blocks);
         }
     }
 }
 
-/*
-this will call the command 'xsetroot -name <the arg>'
-*/
-pub fn update(bar: &Vec<String>) {
+pub fn update(bar: &Vec<String>, blocks: &mut Blocks) {
     // TODO: FIX ME, this solution sucks
     let mut x = String::new();
     for i in bar.iter() {
         x.push_str(i.as_str());
     }
-    Command::new("xsetroot")
-        .arg("-name")
-        .arg(x)
-        .output()
-        .unwrap();
+
+    blocks
+        .root
+        .set_title(&mut blocks.disp, &x)
+        .expect("Failed to set title of root");
 }
 
 /*############################ RUNNING THE PROGRAM ENDS HERE ###########################################*/
@@ -378,48 +480,49 @@ fn get_weather(config: &Config) -> String {
     format!("  {}  {}  {}", config.weather.icon, res, config.seperator)
 }
 
+// getting disk usage
 pub fn get_disk(config: &Config) -> String {
-    let cmd = Command::new("sh")
-        .arg("-c")
-        .args(&["df -h"])
-        .output()
-        .unwrap();
-    let output = String::from_utf8_lossy(&cmd.stdout);
+    const GB: u64 = (1024 * 1024) * 1024;
+    let statvfs = nix::sys::statvfs::statvfs("/").unwrap();
     let mut disk_used = String::new();
-    for line in output.lines() {
-        if line.ends_with('/') {
-            let splited = line.split_whitespace().collect::<Vec<&str>>();
-            disk_used = splited[2].to_string();
-            break;
-        }
-    }
+
+    let total = (statvfs.blocks() * statvfs.fragment_size()) / GB;
+    let available = (statvfs.blocks_free() * statvfs.fragment_size()) / GB;
+    let used = total - available;
+
+    disk_used.push_str(&format!("{}G", used));
     format!(
         "  {}  {}  {}",
         config.disk.icon, disk_used, config.seperator
     )
 }
 
-// FIX ME: what a horrible solution to get the sound, i dont like it
-//       find another way
-
 pub fn get_volume(config: &Config) -> String {
-    let cmd_content = Command::new("amixer")
-        .args(&["-D", "pulse", "get", "Master"])
-        .output()
-        .expect("Make sure that you have alsa-utils installed on your system");
+    let card = if config.volume.card == "PULSE" {
+        "pulse"
+    } else {
+        "default"
+    };
 
-    let vol: String = String::from_utf8_lossy(&cmd_content.stdout)
-        .lines()
-        .last()
-        .expect("failed to get sound volume")
-        .split('[')
-        .collect::<Vec<&str>>()[1]
-        .split(']')
-        .collect::<Vec<&str>>()[0]
-        .trim()
-        .to_string();
+    let mixer = Mixer::new(card, false).expect("Failed to open mixer");
+    let selem_id = SelemId::new("Master", 0);
+    let selem = mixer.find_selem(&selem_id).expect("Couldn't find selem");
+    let selem_chan_id = SelemChannelId::FrontLeft;
 
-    format!("  {}  {}  {}", config.volume.icon, vol, config.seperator)
+    let (min, max) = selem.get_playback_volume_range();
+    let mut raw_volume = selem
+        .get_playback_volume(selem_chan_id)
+        .expect("Failed to get raw_volume");
+
+    let range = max - min;
+    let vol = if range == 0 {
+        0
+    } else {
+        raw_volume -= min;
+        ((raw_volume as f64 / range as f64) * 100.) as u64
+    };
+
+    format!("  {}  {}%  {}", config.volume.icon, vol, config.seperator)
 }
 
 /*
@@ -502,4 +605,53 @@ fn assign_val(line: &str, assignable: &mut u32) {
         .parse()
         .unwrap();
     *assignable = parsed;
+}
+
+// getting battery percentage
+pub fn get_battery(config: &Config) -> Result<String, Error> {
+    let battery_full_cap_file = format!(
+        "/sys/class/power_supply/{}/charge_full_design",
+        config.battery.source
+    );
+    let battery_charge_now_file = format!(
+        "/sys/class/power_supply/{}/charge_now",
+        config.battery.source
+    );
+
+    let mut buf = String::new();
+
+    // FIXME: ugly error handling AGAIN fixing later, im lazy
+    match File::open(&battery_full_cap_file) {
+        Ok(mut file) => file.read_to_string(&mut buf)?,
+        Err(_) => return Ok(String::from("check your battery source name")),
+    };
+    let full_design = buf.trim().parse::<u32>().unwrap();
+    buf.clear();
+
+    // NOTE: no need to error check if passed the above match
+    File::open(&battery_charge_now_file)?.read_to_string(&mut buf)?;
+
+    let charge_now = buf.trim().parse::<u32>().unwrap();
+
+    let battery_percentage = (charge_now as f32 / full_design as f32) * 100.0;
+    let result = format!(
+        "  {}  {:.0}%  {}",
+        config.battery.icon, battery_percentage, config.seperator
+    );
+    Ok(result)
+}
+
+// getting cpu temperature
+pub fn get_cpu_temp(config: &Config) -> Result<String, std::io::Error> {
+    let mut buf = String::new();
+    File::open("/sys/class/thermal/thermal_zone0/temp")?.read_to_string(&mut buf)?;
+    let value = buf.trim().parse::<f32>().unwrap();
+
+    let result = format!(
+        "  {}  {}°  {}",
+        config.cpu_temperature.icon,
+        value / 1000.0,
+        config.seperator
+    );
+    Ok(result)
 }
