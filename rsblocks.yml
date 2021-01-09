@@ -46,3 +46,15 @@ weather:
   format: '%l:+%t'
   delay: 7200.0   # 7200 seconds = 2 hours
 
+
+battery:
+  source: 'BAT0'
+  icon: ''
+  enable: false
+  delay: 120.0
+  
+
+cpu_temperature:
+  icon: ''
+  enable: true
+  delay: 120.0

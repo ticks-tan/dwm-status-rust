@@ -5,7 +5,7 @@
 
 A multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 <p>
-<img align="center" src="./screenshots/1.png"/>
+<img align="center" src="./screenshots/2.png"/>
 </p><br/>
 
 ## Features
@@ -14,7 +14,9 @@ A multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 * Memory Usage
 * Disk Usage
 * Weather Temperature
-* Sound volume
+* Sound Volume
+* Battery Percentage
+* Cpu Temperature
 * Easy to configure with `rsblocks.yml` file
 
 
