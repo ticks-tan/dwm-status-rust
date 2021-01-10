@@ -17,6 +17,7 @@ A multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 * Sound Volume
 * Battery Percentage
 * Cpu Temperature
+* Uptime
 * Easy to configure with `rsblocks.yml` file
 
 

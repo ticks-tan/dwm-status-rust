@@ -1,7 +1,6 @@
 use alsa::mixer::{Mixer, SelemChannelId, SelemId};
 use breadx::{display::*, window::Window};
 use chrono::prelude::*;
-use minreq;
 use std::fs::File;
 use std::io::Error;
 use std::io::Read;
@@ -19,6 +18,7 @@ pub enum ThreadsData {
     Weather(String),
     Battery(String),
     CpuTemp(String),
+    Uptime(String),
 }
 
 #[derive(Clone)]
@@ -31,6 +31,7 @@ pub struct Config {
     pub weather: Weather,
     pub battery: Battery,
     pub cpu_temperature: CpuTemp,
+    pub uptime: Uptime,
 }
 
 #[derive(Clone)]
@@ -85,6 +86,12 @@ pub struct CpuTemp {
     pub delay: f64,
 }
 
+#[derive(Clone)]
+pub struct Uptime {
+    pub icon: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
 /*                            TODOS
 
     TODO 1: Error handling required if rsblocks.yml file is empty.
@@ -167,6 +174,11 @@ fn load_defaults() -> Config {
             enabled: false,
             delay: 120.0,
         },
+        uptime: Uptime {
+            icon: String::from(""),
+            enabled: false,
+            delay: 60.0,
+        },
     }
 }
 
@@ -185,6 +197,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let weather_icon = get_or_set_string(doc, "weather", "icon", "");
     let battery_icon = get_or_set_string(doc, "battery", "icon", "");
     let cpu_temperature_icon = get_or_set_string(doc, "cpu_temperature", "icon", "");
+    let uptime_icon = get_or_set_string(doc, "uptime", "icon", "");
 
     //parsing formats and city weather
     let time_format = get_or_set_string(doc, "time", "format", "%T");
@@ -198,6 +211,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let weather_enabled = get_or_set_bool(doc, "weather", "enable");
     let battery_enabled = get_or_set_bool(doc, "battery", "enable");
     let cpu_temperature_enabled = get_or_set_bool(doc, "cpu_temperature", "enable");
+    let uptime_enabled = get_or_set_bool(doc, "uptime", "enable");
 
     // parsing update_delay state (should be all seconds in f64 type)
     let time_delay = get_or_set_f64(doc, "time", "delay", 1.0);
@@ -207,6 +221,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let weather_delay = get_or_set_f64(doc, "weather", "delay", 7200.0);
     let battery_delay = get_or_set_f64(doc, "battery", "delay", 120.0);
     let cpu_temperature_delay = get_or_set_f64(doc, "cpu_temperature", "delay", 120.0);
+    let uptime_delay = get_or_set_f64(doc, "uptime", "delay", 60.0);
 
     // parsing card for volume, ALSA or PULSE
     let volume_card = get_or_set_string(doc, "volume", "card", "ALSA");
@@ -254,6 +269,11 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             icon: cpu_temperature_icon,
             enabled: cpu_temperature_enabled,
             delay: cpu_temperature_delay,
+        },
+        uptime: Uptime {
+            icon: uptime_icon,
+            enabled: uptime_enabled,
+            delay: uptime_delay,
         },
     }
 }
@@ -307,6 +327,12 @@ impl Blocks {
         let disp = Display::create(None, None).expect("Failed to create x11 connection");
         let root = disp.default_screen().root;
         Self { disp, root }
+    }
+}
+
+impl Default for Blocks {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -388,10 +414,22 @@ pub fn run(config: Config, mut blocks: Blocks) {
         });
     }
 
+    // Uptime thread
+    if config.uptime.enabled {
+        let uptime_tx = tx.clone();
+        let configcp = config.clone();
+        let uptime_data = get_uptime(&configcp).unwrap();
+        let mut uptime_data = ThreadsData::Uptime(uptime_data);
+        thread::spawn(move || loop {
+            uptime_tx.send(uptime_data).unwrap();
+            uptime_data = ThreadsData::Uptime(get_uptime(&configcp).unwrap());
+            thread::sleep(Duration::from_secs_f64(configcp.uptime.delay))
+        });
+    }
     // Time thread
     {
         let time_tx = tx;
-        let configcp = config.clone();
+        let configcp = config;
         let mut time_data = ThreadsData::Time(get_time(&configcp));
         thread::spawn(move || loop {
             time_tx.send(time_data).unwrap();
@@ -403,7 +441,7 @@ pub fn run(config: Config, mut blocks: Blocks) {
     //Main
     {
         // NOTE: order matters to the final format
-        let mut bar: Vec<String> = vec!["".to_string(); 7];
+        let mut bar: Vec<String> = vec!["".to_string(); 8];
         //iterating the values recieved from the threads
         for data in rx {
             match data {
@@ -413,7 +451,8 @@ pub fn run(config: Config, mut blocks: Blocks) {
                 ThreadsData::Memory(x) => bar[3] = x,
                 ThreadsData::CpuTemp(x) => bar[4] = x,
                 ThreadsData::Battery(x) => bar[5] = x,
-                ThreadsData::Time(x) => bar[6] = x,
+                ThreadsData::Uptime(x) => bar[6] = x,
+                ThreadsData::Time(x) => bar[7] = x,
             }
 
             // match ends here
@@ -422,7 +461,7 @@ pub fn run(config: Config, mut blocks: Blocks) {
     }
 }
 
-pub fn update(bar: &Vec<String>, blocks: &mut Blocks) {
+pub fn update(bar: &[String], blocks: &mut Blocks) {
     // TODO: FIX ME, this solution sucks
     let mut x = String::new();
     for i in bar.iter() {
@@ -653,5 +692,24 @@ pub fn get_cpu_temp(config: &Config) -> Result<String, std::io::Error> {
         value / 1000.0,
         config.seperator
     );
+    Ok(result)
+}
+
+pub fn get_uptime(config: &Config) -> Result<String, std::io::Error> {
+    let mut buf = String::new();
+    File::open("/proc/uptime")?.read_to_string(&mut buf)?;
+
+    let buf: f32 = buf.split(' ').collect::<Vec<&str>>()[0].parse().unwrap();
+
+    let hour = buf.round() as u32 / 3600;
+    let rem = buf as u32 - hour * 3600;
+    let minutes = rem / 60;
+
+    let uptime = if hour > 0 {
+        format!("{}:{}", hour, minutes)
+    } else {
+        format!("{} min", minutes)
+    };
+    let result = format!("  {}  {}  {}", config.uptime.icon, uptime, config.seperator);
     Ok(result)
 }
