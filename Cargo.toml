@@ -1,6 +1,6 @@
 [package]
 name = "rsblocks"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["mustafa salih <mustafasalih1991@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -16,6 +16,7 @@ yaml-rust = "0.4"
 minreq = "2.2.1"
 alsa = "0.4.3"
 nix = "0.19.1"
+mpd = "0.0.12"
 
 [dependencies.breadx]
 version = "0.1.11"
