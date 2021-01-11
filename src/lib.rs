@@ -770,7 +770,6 @@ pub fn get_mpd_current(config: &Config) -> String {
         Ok(connection) => connection,
         _ => return String::from(""),
     };
-    conn.volume(100).unwrap();
     let current: Song = conn.currentsong().unwrap().unwrap();
 
     let result = format!(
