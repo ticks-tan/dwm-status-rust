@@ -1,6 +1,7 @@
 use alsa::mixer::{Mixer, SelemChannelId, SelemId};
 use breadx::{display::*, window::Window};
 use chrono::prelude::*;
+use mpd::{Client, Song};
 use std::fs::File;
 use std::io::Error;
 use std::io::Read;
@@ -11,6 +12,7 @@ use yaml_rust::{yaml, YamlLoader};
 
 #[derive(Debug)]
 pub enum ThreadsData {
+    Mpd(String),
     Sound(String),
     Disk(String),
     Memory(String),
@@ -32,6 +34,7 @@ pub struct Config {
     pub battery: Battery,
     pub cpu_temperature: CpuTemp,
     pub uptime: Uptime,
+    pub mpd: Mpd,
 }
 
 #[derive(Clone)]
@@ -92,6 +95,15 @@ pub struct Uptime {
     pub enabled: bool,
     pub delay: f64,
 }
+
+#[derive(Clone)]
+pub struct Mpd {
+    pub icon: String,
+    pub host: String,
+    pub port: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
 /*                            TODOS
 
     TODO 1: Error handling required if rsblocks.yml file is empty.
@@ -104,6 +116,8 @@ pub struct Uptime {
     TODO 4: Need a documentation.
 
     TODO 5: Fix repeated code for threads in `run` function.
+
+    TODO 6: Getting song metadata from mpd by a format provided by the user.
 
 */
 
@@ -179,6 +193,13 @@ fn load_defaults() -> Config {
             enabled: false,
             delay: 60.0,
         },
+        mpd: Mpd {
+            icon: String::from(""),
+            host: String::from("127.0.0.1"),
+            port: String::from("6600"),
+            enabled: false,
+            delay: 15.0,
+        },
     }
 }
 
@@ -198,6 +219,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let battery_icon = get_or_set_string(doc, "battery", "icon", "");
     let cpu_temperature_icon = get_or_set_string(doc, "cpu_temperature", "icon", "");
     let uptime_icon = get_or_set_string(doc, "uptime", "icon", "");
+    let mpd_icon = get_or_set_string(doc, "mpd", "icon", "");
 
     //parsing formats and city weather
     let time_format = get_or_set_string(doc, "time", "format", "%T");
@@ -212,6 +234,7 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let battery_enabled = get_or_set_bool(doc, "battery", "enable");
     let cpu_temperature_enabled = get_or_set_bool(doc, "cpu_temperature", "enable");
     let uptime_enabled = get_or_set_bool(doc, "uptime", "enable");
+    let mpd_enabled = get_or_set_bool(doc, "mpd", "enable");
 
     // parsing update_delay state (should be all seconds in f64 type)
     let time_delay = get_or_set_f64(doc, "time", "delay", 1.0);
@@ -222,12 +245,17 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let battery_delay = get_or_set_f64(doc, "battery", "delay", 120.0);
     let cpu_temperature_delay = get_or_set_f64(doc, "cpu_temperature", "delay", 120.0);
     let uptime_delay = get_or_set_f64(doc, "uptime", "delay", 60.0);
+    let mpd_delay = get_or_set_f64(doc, "mpd", "delay", 15.0);
 
     // parsing card for volume, ALSA or PULSE
     let volume_card = get_or_set_string(doc, "volume", "card", "ALSA");
 
     // parsing battery source name
     let battery_source = get_or_set_string(doc, "battery", "source", "BAT0");
+
+    //parsing mpd host and port
+    let mpd_host = get_or_set_string(doc, "mpd", "host", "127.0.0.1");
+    let mpd_port = get_or_set_string(doc, "mpd", "port", "6600");
 
     Config {
         seperator,
@@ -274,6 +302,13 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             icon: uptime_icon,
             enabled: uptime_enabled,
             delay: uptime_delay,
+        },
+        mpd: Mpd {
+            icon: mpd_icon,
+            host: mpd_host,
+            port: mpd_port,
+            enabled: mpd_enabled,
+            delay: mpd_delay,
         },
     }
 }
@@ -338,6 +373,19 @@ impl Default for Blocks {
 
 pub fn run(config: Config, mut blocks: Blocks) {
     let (tx, rx) = mpsc::channel();
+
+    // mpd thread
+    if config.mpd.enabled {
+        let mpd_tx = tx.clone();
+        let configcp = config.clone();
+        let mut mpd_data = ThreadsData::Mpd(get_mpd_current(&configcp));
+        thread::spawn(move || loop {
+            mpd_tx.send(mpd_data).unwrap();
+            mpd_data = ThreadsData::Mpd(get_mpd_current(&configcp));
+            thread::sleep(Duration::from_secs_f64(configcp.mpd.delay))
+        });
+    }
+
     // volume thread
     if config.volume.enabled {
         let volume_tx = tx.clone();
@@ -441,18 +489,19 @@ pub fn run(config: Config, mut blocks: Blocks) {
     //Main
     {
         // NOTE: order matters to the final format
-        let mut bar: Vec<String> = vec!["".to_string(); 8];
+        let mut bar: Vec<String> = vec!["".to_string(); 9];
         //iterating the values recieved from the threads
         for data in rx {
             match data {
-                ThreadsData::Sound(x) => bar[0] = x,
-                ThreadsData::Weather(x) => bar[1] = x,
-                ThreadsData::Disk(x) => bar[2] = x,
-                ThreadsData::Memory(x) => bar[3] = x,
-                ThreadsData::CpuTemp(x) => bar[4] = x,
-                ThreadsData::Battery(x) => bar[5] = x,
-                ThreadsData::Uptime(x) => bar[6] = x,
-                ThreadsData::Time(x) => bar[7] = x,
+                ThreadsData::Mpd(x) => bar[0] = x,
+                ThreadsData::Sound(x) => bar[1] = x,
+                ThreadsData::Weather(x) => bar[2] = x,
+                ThreadsData::Disk(x) => bar[3] = x,
+                ThreadsData::Memory(x) => bar[4] = x,
+                ThreadsData::CpuTemp(x) => bar[5] = x,
+                ThreadsData::Battery(x) => bar[6] = x,
+                ThreadsData::Uptime(x) => bar[7] = x,
+                ThreadsData::Time(x) => bar[8] = x,
             }
 
             // match ends here
@@ -712,4 +761,22 @@ pub fn get_uptime(config: &Config) -> Result<String, std::io::Error> {
     };
     let result = format!("  {}  {}  {}", config.uptime.icon, uptime, config.seperator);
     Ok(result)
+}
+
+// getting mpd song file
+pub fn get_mpd_current(config: &Config) -> String {
+    let stream_path = format!("{}:{}", config.mpd.host, config.mpd.port);
+    let mut conn = match Client::connect(&stream_path) {
+        Ok(connection) => connection,
+        _ => return String::from(""),
+    };
+    conn.volume(100).unwrap();
+    let current: Song = conn.currentsong().unwrap().unwrap();
+
+    let result = format!(
+        "  {}  {}  {}",
+        config.mpd.icon, current.file, config.seperator
+    );
+
+    result
 }
