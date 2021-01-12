@@ -19,12 +19,23 @@ A multi threaded fast status bar for dwm window manager written in **Rust** 🦀
 * Cpu Temperature
 * Uptime
 * Mpd Current Song File
+* Spotify Current Song
 * Easy to configure with `rsblocks.yml` file
 
 
 ## Notes
 * This tool is still in development stage.
 * currently supports only linux.
+
+
+## Build Requirements
+* [Libdbus](https://dbus.freedesktop.org/releases/dbus/) 1.6 or higher as a spotify requirement
+
+On Ubuntu, you can do :
+```sh
+sudo apt install libdbus-1-dev pkg-config
+```
+
 
 ## Cargo Installation
 You can install the binary crate directly

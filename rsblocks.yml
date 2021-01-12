@@ -5,8 +5,7 @@
 general:
   seperator: '┃'
 
-
-# Time always running, no enable option for this  
+  
 time:
   icon: ''
   format: '%d %b, %I:%M:%S %p'
@@ -14,21 +13,21 @@ time:
 
   
 memory:
-  icon: '▦'
   enable: true
+  icon: '▦'
   delay: 2.0
 
   
 disk:
-  icon: ''
   enable: true
+  icon: ''
   delay: 120.0
 
   
 battery:
+  source: 'BAT0'
   icon: ''
   enable: false
-  source: 'BAT0'
   delay: 120.0
   
 
@@ -46,19 +45,15 @@ mpd:
   delay: 5.0
 
   
+# reads from alsa, alsa-utils package should
+# be installed on the system to make it work.
 volume:
-  icon: ''
   enable: true
+  icon: ''
   delay: 0.18
   card: 'PULSE'
 
 
-spotify:
-  icon: ''  
-  enable: false
-  delay: 0.5
-
-  
 # weather format options is available on
 # https://github.com/chubin/wttr.in
 # NOTES:
