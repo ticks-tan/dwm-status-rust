@@ -770,7 +770,13 @@ pub fn get_mpd_current(config: &Config) -> String {
         Ok(connection) => connection,
         _ => return String::from(""),
     };
-    let current: Song = conn.currentsong().unwrap().unwrap();
+    let current: Song = match conn.currentsong() {
+        Ok(opt) => match opt {
+            Some(song) => song,
+            _ => return String::from(""),
+        },
+        _ => return String::from(""),
+    };
 
     let result = format!(
         "  {}  {}  {}",
