@@ -1,6 +1,32 @@
+//! `rsblocks` A multi threaded status bar for dwm window manager.
+
+/*
+
+ Licence: MIT
+
+
+ Author: Mustafa Salih
+         [MustafaSalih](https://github.com/MustafaSalih1993)
+
+
+ Contributers:
+
+           -  AdaShoelace - for her/his contributions.
+              [AdaShoelace](https://github.com/AdaShoelace)
+
+
+ Thanks to:
+           - wttr.in - for using their weather API.
+             [wttr.in](https://github.com/chubin/wttr.in)
+
+
+*/
+
 use alsa::mixer::{Mixer, SelemChannelId, SelemId};
 use breadx::{display::*, window::Window};
 use chrono::prelude::*;
+use dbus::blocking::stdintf::org_freedesktop_dbus::Properties;
+use dbus::{arg, blocking::Connection};
 use mpd::{Client, Song};
 use std::fs::File;
 use std::io::Error;
@@ -21,6 +47,7 @@ pub enum ThreadsData {
     Battery(String),
     CpuTemp(String),
     Uptime(String),
+    Spotify(String),
 }
 
 #[derive(Clone)]
@@ -35,6 +62,7 @@ pub struct Config {
     pub cpu_temperature: CpuTemp,
     pub uptime: Uptime,
     pub mpd: Mpd,
+    pub spotify: Spotify,
 }
 
 #[derive(Clone)]
@@ -104,6 +132,33 @@ pub struct Mpd {
     pub enabled: bool,
     pub delay: f64,
 }
+
+#[derive(Clone)]
+pub struct Spotify {
+    pub icon: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
+
+pub struct Blocks {
+    disp: Display<name::NameConnection>,
+    root: Window,
+}
+
+impl Blocks {
+    pub fn new() -> Self {
+        let disp = Display::create(None, None).expect("Failed to create x11 connection");
+        let root = disp.default_screen().root;
+        Self { disp, root }
+    }
+}
+
+impl Default for Blocks {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /*                            TODOS
 
     TODO 1: Error handling required if rsblocks.yml file is empty.
@@ -117,11 +172,12 @@ pub struct Mpd {
 
     TODO 5: Fix repeated code for threads in `run` function.
 
-    TODO 6: Getting song metadata from mpd by a format provided by the user.
+    TODO 6: Getting song metadata by a format provided by the user.
 
 */
 
-/*this function is responsible to check if the rsblocks.yml file
+/*
+this function is responsible to check if the rsblocks.yml file
 exists to call parse_config to read it OTHERWISE
 it will call load_defaults to load a hardcoded default configuration
 
@@ -200,62 +256,80 @@ fn load_defaults() -> Config {
             enabled: false,
             delay: 15.0,
         },
+        spotify: Spotify {
+            icon: String::from(""),
+            enabled: false,
+            delay: 15.0,
+        },
     }
 }
 
 /*
 it will read and parse the rsblocks.yml file content and return a valid configuration
 IF some content is missing in the rsblocks.yml file, it will set
-a default values to that
+a default values to that.
+
+NOTE: (get_or_set) functions job below getting the values from the configuration doc IF
+      a value is not exist in the config it will SET a value givin in the last argument.
 */
 fn parse_config(doc: &yaml::Yaml) -> Config {
-    // parsing icons and set default if not exist in the config file
     let seperator = get_or_set_string(doc, "general", "seperator", "|");
+
+    // time values
     let time_icon = get_or_set_string(doc, "time", "icon", "");
-    let mem_icon = get_or_set_string(doc, "memory", "icon", "");
-    let disk_icon = get_or_set_string(doc, "disk", "icon", "");
-    let volume_icon = get_or_set_string(doc, "volume", "icon", "");
-    let weather_icon = get_or_set_string(doc, "weather", "icon", "");
-    let battery_icon = get_or_set_string(doc, "battery", "icon", "");
-    let cpu_temperature_icon = get_or_set_string(doc, "cpu_temperature", "icon", "");
-    let uptime_icon = get_or_set_string(doc, "uptime", "icon", "");
-    let mpd_icon = get_or_set_string(doc, "mpd", "icon", "");
-
-    //parsing formats and city weather
     let time_format = get_or_set_string(doc, "time", "format", "%T");
-    let weather_format = get_or_set_string(doc, "weather", "format", "%l:+%t");
-    let weather_city = get_or_set_string(doc, "weather", "city", "");
-
-    // parsing enabled state (everything false by default)
-    let disk_enabled = get_or_set_bool(doc, "disk", "enable");
-    let memory_enabled = get_or_set_bool(doc, "memory", "enable");
-    let volume_enabled = get_or_set_bool(doc, "volume", "enable");
-    let weather_enabled = get_or_set_bool(doc, "weather", "enable");
-    let battery_enabled = get_or_set_bool(doc, "battery", "enable");
-    let cpu_temperature_enabled = get_or_set_bool(doc, "cpu_temperature", "enable");
-    let uptime_enabled = get_or_set_bool(doc, "uptime", "enable");
-    let mpd_enabled = get_or_set_bool(doc, "mpd", "enable");
-
-    // parsing update_delay state (should be all seconds in f64 type)
     let time_delay = get_or_set_f64(doc, "time", "delay", 1.0);
-    let disk_delay = get_or_set_f64(doc, "disk", "delay", 120.0);
-    let memory_delay = get_or_set_f64(doc, "memory", "delay", 2.0);
-    let volume_delay = get_or_set_f64(doc, "volume", "delay", 0.17);
-    let weather_delay = get_or_set_f64(doc, "weather", "delay", 7200.0);
-    let battery_delay = get_or_set_f64(doc, "battery", "delay", 120.0);
-    let cpu_temperature_delay = get_or_set_f64(doc, "cpu_temperature", "delay", 120.0);
-    let uptime_delay = get_or_set_f64(doc, "uptime", "delay", 60.0);
-    let mpd_delay = get_or_set_f64(doc, "mpd", "delay", 15.0);
 
-    // parsing card for volume, ALSA or PULSE
+    // memory values
+    let mem_icon = get_or_set_string(doc, "memory", "icon", "");
+    let memory_enabled = get_or_set_bool(doc, "memory", "enable");
+    let memory_delay = get_or_set_f64(doc, "memory", "delay", 2.0);
+
+    //disk values
+    let disk_icon = get_or_set_string(doc, "disk", "icon", "");
+    let disk_enabled = get_or_set_bool(doc, "disk", "enable");
+    let disk_delay = get_or_set_f64(doc, "disk", "delay", 120.0);
+
+    // volume values
+    let volume_icon = get_or_set_string(doc, "volume", "icon", "");
+    let volume_enabled = get_or_set_bool(doc, "volume", "enable");
+    let volume_delay = get_or_set_f64(doc, "volume", "delay", 0.17);
     let volume_card = get_or_set_string(doc, "volume", "card", "ALSA");
 
-    // parsing battery source name
-    let battery_source = get_or_set_string(doc, "battery", "source", "BAT0");
+    // weather values
+    let weather_icon = get_or_set_string(doc, "weather", "icon", "");
+    let weather_format = get_or_set_string(doc, "weather", "format", "%l:+%t");
+    let weather_city = get_or_set_string(doc, "weather", "city", "");
+    let weather_enabled = get_or_set_bool(doc, "weather", "enable");
+    let weather_delay = get_or_set_f64(doc, "weather", "delay", 7200.0);
 
-    //parsing mpd host and port
+    // battery values
+    let battery_icon = get_or_set_string(doc, "battery", "icon", "");
+    let battery_enabled = get_or_set_bool(doc, "battery", "enable");
+    let battery_source = get_or_set_string(doc, "battery", "source", "BAT0");
+    let battery_delay = get_or_set_f64(doc, "battery", "delay", 120.0);
+
+    // cpu values
+    let cpu_temperature_icon = get_or_set_string(doc, "cpu_temperature", "icon", "");
+    let cpu_temperature_enabled = get_or_set_bool(doc, "cpu_temperature", "enable");
+    let cpu_temperature_delay = get_or_set_f64(doc, "cpu_temperature", "delay", 120.0);
+
+    // uptime values
+    let uptime_icon = get_or_set_string(doc, "uptime", "icon", "");
+    let uptime_enabled = get_or_set_bool(doc, "uptime", "enable");
+    let uptime_delay = get_or_set_f64(doc, "uptime", "delay", 60.0);
+
+    // mpd values
+    let mpd_icon = get_or_set_string(doc, "mpd", "icon", "");
     let mpd_host = get_or_set_string(doc, "mpd", "host", "127.0.0.1");
     let mpd_port = get_or_set_string(doc, "mpd", "port", "6600");
+    let mpd_enabled = get_or_set_bool(doc, "mpd", "enable");
+    let mpd_delay = get_or_set_f64(doc, "mpd", "delay", 15.0);
+
+    //spotify values
+    let spotify_icon = get_or_set_string(doc, "spotify", "icon", "");
+    let spotify_enabled = get_or_set_bool(doc, "spotify", "enable");
+    let spotify_delay = get_or_set_f64(doc, "spotify", "delay", 10.0);
 
     Config {
         seperator,
@@ -310,10 +384,15 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             enabled: mpd_enabled,
             delay: mpd_delay,
         },
+        spotify: Spotify {
+            icon: spotify_icon,
+            enabled: spotify_enabled,
+            delay: spotify_delay,
+        },
     }
 }
 
-// getting a f32 value from rsblocks.yml file or set default (last argument)
+// getting a f64 value from rsblocks.yml file or set default (last argument)
 fn get_or_set_f64(doc: &yaml::Yaml, parent: &str, child: &str, default: f64) -> f64 {
     let val: f64 = if doc[parent][child].is_badvalue() {
         default
@@ -352,27 +431,20 @@ fn get_or_set_string(doc: &yaml::Yaml, parent: &str, child: &str, default_val: &
 
 // Running the program:
 
-pub struct Blocks {
-    disp: Display<name::NameConnection>,
-    root: Window,
-}
-
-impl Blocks {
-    pub fn new() -> Self {
-        let disp = Display::create(None, None).expect("Failed to create x11 connection");
-        let root = disp.default_screen().root;
-        Self { disp, root }
-    }
-}
-
-impl Default for Blocks {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 pub fn run(config: Config, mut blocks: Blocks) {
     let (tx, rx) = mpsc::channel();
+
+    // spotify thread
+    if config.spotify.enabled {
+        let spotify_tx = tx.clone();
+        let configcp = config.clone();
+        let mut spotify_data = ThreadsData::Spotify(get_spotify(&configcp));
+        thread::spawn(move || loop {
+            spotify_tx.send(spotify_data).unwrap();
+            spotify_data = ThreadsData::Spotify(get_spotify(&configcp));
+            thread::sleep(Duration::from_secs_f64(configcp.spotify.delay))
+        });
+    }
 
     // mpd thread
     if config.mpd.enabled {
@@ -474,6 +546,7 @@ pub fn run(config: Config, mut blocks: Blocks) {
             thread::sleep(Duration::from_secs_f64(configcp.uptime.delay))
         });
     }
+
     // Time thread
     {
         let time_tx = tx;
@@ -489,19 +562,20 @@ pub fn run(config: Config, mut blocks: Blocks) {
     //Main
     {
         // NOTE: order matters to the final format
-        let mut bar: Vec<String> = vec!["".to_string(); 9];
+        let mut bar: Vec<String> = vec!["".to_string(); 10];
         //iterating the values recieved from the threads
         for data in rx {
             match data {
-                ThreadsData::Mpd(x) => bar[0] = x,
-                ThreadsData::Sound(x) => bar[1] = x,
-                ThreadsData::Weather(x) => bar[2] = x,
-                ThreadsData::Disk(x) => bar[3] = x,
-                ThreadsData::Memory(x) => bar[4] = x,
-                ThreadsData::CpuTemp(x) => bar[5] = x,
-                ThreadsData::Battery(x) => bar[6] = x,
-                ThreadsData::Uptime(x) => bar[7] = x,
-                ThreadsData::Time(x) => bar[8] = x,
+                ThreadsData::Spotify(x) => bar[0] = x,
+                ThreadsData::Mpd(x) => bar[1] = x,
+                ThreadsData::Sound(x) => bar[2] = x,
+                ThreadsData::Weather(x) => bar[3] = x,
+                ThreadsData::Disk(x) => bar[4] = x,
+                ThreadsData::Memory(x) => bar[5] = x,
+                ThreadsData::CpuTemp(x) => bar[6] = x,
+                ThreadsData::Battery(x) => bar[7] = x,
+                ThreadsData::Uptime(x) => bar[8] = x,
+                ThreadsData::Time(x) => bar[9] = x,
             }
 
             // match ends here
@@ -511,7 +585,6 @@ pub fn run(config: Config, mut blocks: Blocks) {
 }
 
 pub fn update(bar: &[String], blocks: &mut Blocks) {
-    // TODO: FIX ME, this solution sucks
     let mut x = String::new();
     for i in bar.iter() {
         x.push_str(i.as_str());
@@ -544,10 +617,7 @@ pub fn get_time(config: &Config) -> String {
     )
 }
 
-/*
-CREDIT: thanks for wttr.in to use their API
-will make a GET request from wttr.in
-*/
+// will make a GET request from wttr.in
 fn get_weather(config: &Config) -> String {
     let format = if config.weather.format.is_empty() {
         String::from("%l:+%t")
@@ -585,6 +655,7 @@ pub fn get_disk(config: &Config) -> String {
     )
 }
 
+// getting volume percentage
 pub fn get_volume(config: &Config) -> String {
     let card = if config.volume.card == "PULSE" {
         "pulse"
@@ -763,19 +834,21 @@ pub fn get_uptime(config: &Config) -> Result<String, std::io::Error> {
     Ok(result)
 }
 
+// yes, error handling looks fucking sucks!
 // getting mpd song file
 pub fn get_mpd_current(config: &Config) -> String {
     let stream_path = format!("{}:{}", config.mpd.host, config.mpd.port);
+    let empty_string = String::from("");
     let mut conn = match Client::connect(&stream_path) {
         Ok(connection) => connection,
-        _ => return String::from(""),
+        _ => return empty_string,
     };
     let current: Song = match conn.currentsong() {
         Ok(opt) => match opt {
             Some(song) => song,
-            _ => return String::from(""),
+            _ => return empty_string,
         },
-        _ => return String::from(""),
+        _ => return empty_string,
     };
 
     let result = format!(
@@ -784,4 +857,45 @@ pub fn get_mpd_current(config: &Config) -> String {
     );
 
     result
+}
+
+// getting spotify current artist and title.
+// FIXME: I know im lazy asshole, this error handling looks ugly, i dont like it too, need to fix soon.
+fn get_spotify(config: &Config) -> String {
+    let conn = match Connection::new_session() {
+        Ok(conn) => conn,
+        _ => return String::from(""),
+    };
+
+    let p = conn.with_proxy(
+        "org.mpris.MediaPlayer2.spotify",
+        "/org/mpris/MediaPlayer2",
+        Duration::from_millis(5000),
+    );
+
+    let metadata: arg::PropMap = match p.get("org.mpris.MediaPlayer2.Player", "Metadata") {
+        Ok(data) => data,
+        _ => return String::from(""),
+    };
+
+    let title: Option<&String> = arg::prop_cast(&metadata, "xesam:title");
+    let artist: Option<&Vec<String>> = arg::prop_cast(&metadata, "xesam:artist");
+
+    let title = match title {
+        Some(title) => title,
+        _ => "",
+    };
+
+    let artist = match artist {
+        Some(artist_vec) => match artist_vec.first() {
+            Some(name) => name,
+            _ => "",
+        },
+        None => "",
+    };
+
+    format!(
+        "  {}  {} - {}  {}",
+        config.spotify.icon, artist, title, config.seperator
+    )
 }
