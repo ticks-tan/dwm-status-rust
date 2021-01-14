@@ -1,0 +1,10 @@
+pub mod battery;
+pub mod cpu;
+pub mod disk;
+pub mod memory;
+pub mod mpd;
+pub mod spotify;
+pub mod time;
+pub mod uptime;
+pub mod volume;
+pub mod weather;
