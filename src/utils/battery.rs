@@ -16,7 +16,6 @@ pub fn get_battery(config: &Config) -> Result<String, Error> {
 
     let mut buf = String::new();
 
-    // FIXME: ugly error handling AGAIN fixing later, im lazy
     match File::open(&battery_full_cap_file) {
         Ok(mut file) => file.read_to_string(&mut buf)?,
         Err(_) => return Ok(String::from("check your battery source name")),
@@ -24,7 +23,7 @@ pub fn get_battery(config: &Config) -> Result<String, Error> {
     let full_design = buf.trim().parse::<u32>().unwrap();
     buf.clear();
 
-    // NOTE: no need to error check if passed the above match
+    // No need to error check if passed the above match
     File::open(&battery_charge_now_file)?.read_to_string(&mut buf)?;
 
     let charge_now = buf.trim().parse::<u32>().unwrap();
