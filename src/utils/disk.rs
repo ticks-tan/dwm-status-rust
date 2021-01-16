@@ -1,6 +1,5 @@
 use crate::types::Config;
 
-// getting disk usage
 pub fn get_disk(config: &Config) -> String {
     const GB: u64 = (1024 * 1024) * 1024;
     let statvfs = nix::sys::statvfs::statvfs("/").unwrap();

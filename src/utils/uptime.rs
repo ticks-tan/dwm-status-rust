@@ -4,7 +4,10 @@ use std::io::Read;
 
 pub fn get_uptime(config: &Config) -> Result<String, std::io::Error> {
     let mut buf = String::new();
-    File::open("/proc/uptime")?.read_to_string(&mut buf)?;
+    match File::open("/proc/uptime") {
+        Ok(mut file) => file.read_to_string(&mut buf)?,
+        _ => return Ok("cant find uptime file!".to_string()),
+    };
 
     let buf: f32 = buf.split(' ').collect::<Vec<&str>>()[0].parse().unwrap();
 

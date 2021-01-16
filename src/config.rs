@@ -21,8 +21,21 @@ pub fn load_config() -> Result<Config, Error> {
         }
     };
     file.read_to_string(&mut data)?;
-    let yml_content = &YamlLoader::load_from_str(&data).unwrap()[0];
-    let config = parse_config(yml_content);
+
+    // checking if rsblocks.yml is empty
+    let yml_content = match YamlLoader::load_from_str(&data) {
+        Ok(content) => {
+            if content.len() > 0 {
+                content[0].clone()
+            } else {
+                eprintln!("configuration file looks empty, loading defaults!");
+                return Ok(load_defaults());
+            }
+        }
+        _ => return Ok(load_defaults()),
+    };
+
+    let config = parse_config(&yml_content);
     Ok(config)
 }
 
