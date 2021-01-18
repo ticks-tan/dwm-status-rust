@@ -38,6 +38,13 @@ cpu_temperature:
   delay: 120.0
 
 
+# cpu load average  
+loadavg:
+  icon: ''
+  enable: false
+  delay: 2.0
+  
+
 mpd:
   icon: ''
   host: '127.0.0.1'
