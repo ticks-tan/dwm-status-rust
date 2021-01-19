@@ -12,6 +12,7 @@ pub enum ThreadsData {
     CpuTemp(String),
     Uptime(String),
     Spotify(String),
+    LoadAvg(String),
 }
 
 #[derive(Clone)]
@@ -27,6 +28,7 @@ pub struct Config {
     pub uptime: Uptime,
     pub mpd: Mpd,
     pub spotify: Spotify,
+    pub loadavg: LoadAvg,
 }
 
 #[derive(Clone)]
@@ -99,6 +101,13 @@ pub struct Mpd {
 
 #[derive(Clone)]
 pub struct Spotify {
+    pub icon: String,
+    pub enabled: bool,
+    pub delay: f64,
+}
+
+#[derive(Clone)]
+pub struct LoadAvg {
     pub icon: String,
     pub enabled: bool,
     pub delay: f64,

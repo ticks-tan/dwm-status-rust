@@ -4,9 +4,21 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+/* This is ugly, maybe i will try to impliment a threadpool  */
+
 pub fn run(config: Config, mut blocks: Blocks) {
     let (tx, rx) = mpsc::channel();
 
+    // loadavrage thread
+    if config.loadavg.enabled {
+        let loadavg_tx = tx.clone();
+        let configcp = config.clone();
+        thread::spawn(move || loop {
+            let loadavg_data = ThreadsData::LoadAvg(load_average::get_load_avg(&configcp));
+            loadavg_tx.send(loadavg_data).unwrap();
+            thread::sleep(Duration::from_secs_f64(configcp.loadavg.delay))
+        });
+    }
     // spotify thread
     if config.spotify.enabled {
         let spotify_tx = tx.clone();
@@ -120,7 +132,7 @@ pub fn run(config: Config, mut blocks: Blocks) {
     //Main
     {
         // NOTE: order matters to the final format
-        let mut bar: Vec<String> = vec![String::from(""); 10];
+        let mut bar: Vec<String> = vec![String::from(""); 11];
         //iterating the values recieved from the threads
         for data in rx {
             match data {
@@ -131,9 +143,10 @@ pub fn run(config: Config, mut blocks: Blocks) {
                 ThreadsData::Disk(x) => bar[4] = x,
                 ThreadsData::Memory(x) => bar[5] = x,
                 ThreadsData::CpuTemp(x) => bar[6] = x,
-                ThreadsData::Battery(x) => bar[7] = x,
-                ThreadsData::Uptime(x) => bar[8] = x,
-                ThreadsData::Time(x) => bar[9] = x,
+                ThreadsData::LoadAvg(x) => bar[7] = x,
+                ThreadsData::Battery(x) => bar[8] = x,
+                ThreadsData::Uptime(x) => bar[9] = x,
+                ThreadsData::Time(x) => bar[10] = x,
             }
 
             // match ends here

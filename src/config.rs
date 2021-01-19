@@ -101,6 +101,11 @@ fn load_defaults() -> Config {
             enabled: false,
             delay: 15.0,
         },
+        loadavg: LoadAvg {
+            icon: String::from(""),
+            enabled: false,
+            delay: 60.0,
+        },
     }
 }
 
@@ -171,6 +176,11 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
     let spotify_enabled = get_or_set_bool(doc, "spotify", "enable");
     let spotify_delay = get_or_set_f64(doc, "spotify", "delay", 10.0);
 
+    //Load Avrage values
+    let loadavg_icon = get_or_set_string(doc, "loadavg", "icon", "");
+    let loadavg_enabled = get_or_set_bool(doc, "loadavg", "enable");
+    let loadavg_delay = get_or_set_f64(doc, "loadavg", "delay", 60.0);
+
     Config {
         seperator,
         time: Time {
@@ -228,6 +238,11 @@ fn parse_config(doc: &yaml::Yaml) -> Config {
             icon: spotify_icon,
             enabled: spotify_enabled,
             delay: spotify_delay,
+        },
+        loadavg: LoadAvg {
+            icon: loadavg_icon,
+            enabled: loadavg_enabled,
+            delay: loadavg_delay,
         },
     }
 }
