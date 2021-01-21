@@ -1,9 +1,9 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use alsa::mixer::{Mixer, SelemChannelId, SelemId};
 
 // getting volume percentage
-pub fn get_volume(config: &Config) -> String {
-    let card = if config.volume.card == "PULSE" {
+pub fn get_volume() -> String {
+    let card = if CONFIG.volume.card == "PULSE" {
         "pulse"
     } else {
         "default"
@@ -27,5 +27,5 @@ pub fn get_volume(config: &Config) -> String {
         ((raw_volume as f64 / range as f64) * 100.) as u64
     };
 
-    format!("  {}  {}%  {}", config.volume.icon, vol, config.seperator)
+    format!("  {}  {}%  {}", CONFIG.volume.icon, vol, CONFIG.seperator)
 }

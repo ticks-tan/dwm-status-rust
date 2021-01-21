@@ -1,4 +1,4 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use std::fs::File;
 use std::io::Read;
 
@@ -7,7 +7,7 @@ mem_used = (mem_total + shmem - mem_free - mem_buffers - mem_cached - mem_srecl
 thanks for htop's developer on stackoverflow for providing this algorithm to
 calculate used memory.
 */
-pub fn get_memory(config: &Config) -> Result<String, std::io::Error> {
+pub fn get_memory() -> Result<String, std::io::Error> {
     let mut buf = String::new();
 
     File::open("/proc/meminfo")?.read_to_string(&mut buf)?;
@@ -56,14 +56,14 @@ pub fn get_memory(config: &Config) -> Result<String, std::io::Error> {
     if mem_used > 1000 {
         result = format!(
             "  {}  {:.1}G  {}",
-            config.memory.icon,
+            CONFIG.memory.icon,
             mem_used as f32 / 1000.0,
-            config.seperator
+            CONFIG.seperator
         );
     } else {
         result = format!(
             "  {}  {}M  {}",
-            config.memory.icon, mem_used, config.seperator
+            CONFIG.memory.icon, mem_used, CONFIG.seperator
         );
     }
     Ok(result)

@@ -12,12 +12,15 @@ description = "a multi threaded status bar for dwm window manager for linux"
 
 [dependencies]
 chrono = "0.4"
-yaml-rust = "0.4"
 minreq = "2.2.1"
 alsa = "0.4.3"
 nix = "0.19.1"
 mpd = "0.0.12"
 dbus = "0.9.1"
+serde = {version = "1.0.120", features = ["derive"]}
+serde_yaml = "0.8.15"
+lazy_static = "1.4.0"
+
 
 [dependencies.breadx]
 version = "0.1.11"

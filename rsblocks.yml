@@ -6,7 +6,7 @@ general:
   seperator: '┃'
 
 
-# Time always running, no enable option for this  
+# Time always running, no enabled option for this  
 time:
   icon: ''
   format: '%d %b, %I:%M:%S %p'
@@ -15,33 +15,33 @@ time:
   
 memory:
   icon: '▦'
-  enable: true
+  enabled: true
   delay: 2.0
 
   
 disk:
   icon: ''
-  enable: true
+  enabled: true
   delay: 120.0
 
   
 battery:
   icon: ''
-  enable: false
+  enabled: false
   source: 'BAT0'
   delay: 120.0
   
 
 cpu_temperature:
   icon: ''
-  enable: true
+  enabled: true
   delay: 120.0
 
 
 # cpu load average  
 loadavg:
   icon: ''
-  enable: false
+  enabled: false
   delay: 2.0
   
 
@@ -49,20 +49,20 @@ mpd:
   icon: ''
   host: '127.0.0.1'
   port: '6600'
-  enable: false
+  enabled: false
   delay: 5.0
 
   
 volume:
   icon: ''
-  enable: true
+  enabled: true
   delay: 0.18
   card: 'PULSE'
 
 
 spotify:
   icon: ''  
-  enable: false
+  enabled: false
   delay: 0.5
 
   
@@ -73,7 +73,7 @@ spotify:
 #       - if you have multiple formats and want to insert space between them use '+' instead.
 #       - giving (city) a value is recommended.
 weather:
-  enable: true
+  enabled: true
   icon: ''
   city: ''        
   format: '%l:+%t'

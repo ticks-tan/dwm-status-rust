@@ -1,13 +1,13 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use chrono::prelude::*;
 
-pub fn get_time(config: &Config) -> String {
+pub fn get_time() -> String {
     let now = Local::now();
 
     format!(
         "  {}  {}  {}",
-        config.time.icon,
-        now.format(&config.time.format),
-        config.seperator
+        CONFIG.time.icon,
+        now.format(&CONFIG.time.format),
+        CONFIG.seperator
     )
 }

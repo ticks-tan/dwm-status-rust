@@ -1,17 +1,17 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use std::fs::File;
 use std::io::Error;
 use std::io::Read;
 
 // getting battery percentage
-pub fn get_battery(config: &Config) -> Result<String, Error> {
+pub fn get_battery() -> Result<String, Error> {
     let battery_full_cap_file = format!(
         "/sys/class/power_supply/{}/charge_full_design",
-        config.battery.source
+        CONFIG.battery.source
     );
     let battery_charge_now_file = format!(
         "/sys/class/power_supply/{}/charge_now",
-        config.battery.source
+        CONFIG.battery.source
     );
 
     let mut buf = String::new();
@@ -31,7 +31,7 @@ pub fn get_battery(config: &Config) -> Result<String, Error> {
     let battery_percentage = (charge_now as f32 / full_design as f32) * 100.0;
     let result = format!(
         "  {}  {:.0}%  {}",
-        config.battery.icon, battery_percentage, config.seperator
+        CONFIG.battery.icon, battery_percentage, CONFIG.seperator
     );
     Ok(result)
 }
