@@ -1,14 +1,14 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 
 // will make a GET request from wttr.in
-pub fn get_weather(config: &Config) -> String {
-    let format = if config.weather.format.is_empty() {
+pub fn get_weather() -> String {
+    let format = if CONFIG.weather.format.is_empty() {
         String::from("%l:+%t")
     } else {
-        config.weather.format.clone()
+        CONFIG.weather.format.clone()
     };
 
-    let url = format!("http://wttr.in/{}?format=\"{}", config.weather.city, format);
+    let url = format!("http://wttr.in/{}?format=\"{}", CONFIG.weather.city, format);
     let err_string = String::from("Error");
     let res = match minreq::get(url).send() {
         Ok(resp) => match resp.as_str() {
@@ -18,5 +18,5 @@ pub fn get_weather(config: &Config) -> String {
         Err(_) => err_string,
     };
 
-    format!("  {}  {}  {}", config.weather.icon, res, config.seperator)
+    format!("  {}  {}  {}", CONFIG.weather.icon, res, CONFIG.seperator)
 }

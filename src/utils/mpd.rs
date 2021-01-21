@@ -1,10 +1,10 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use mpd::{Client, Song};
 
 // yes, error handling looks fucking sucks!
 // getting mpd song file
-pub fn get_mpd_current(config: &Config) -> String {
-    let stream_path = format!("{}:{}", config.mpd.host, config.mpd.port);
+pub fn get_mpd_current() -> String {
+    let stream_path = format!("{}:{}", CONFIG.mpd.host, CONFIG.mpd.port);
     let empty_string = String::from("");
     let mut conn = match Client::connect(&stream_path) {
         Ok(connection) => connection,
@@ -20,7 +20,7 @@ pub fn get_mpd_current(config: &Config) -> String {
 
     let result = format!(
         "  {}  {}  {}",
-        config.mpd.icon, current.file, config.seperator
+        CONFIG.mpd.icon, current.file, CONFIG.seperator
     );
 
     result

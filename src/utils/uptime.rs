@@ -1,8 +1,8 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use std::fs::File;
 use std::io::Read;
 
-pub fn get_uptime(config: &Config) -> Result<String, std::io::Error> {
+pub fn get_uptime() -> Result<String, std::io::Error> {
     let mut buf = String::new();
     match File::open("/proc/uptime") {
         Ok(mut file) => file.read_to_string(&mut buf)?,
@@ -20,6 +20,6 @@ pub fn get_uptime(config: &Config) -> Result<String, std::io::Error> {
     } else {
         format!("{} min", minutes)
     };
-    let result = format!("  {}  {}  {}", config.uptime.icon, uptime, config.seperator);
+    let result = format!("  {}  {}  {}", CONFIG.uptime.icon, uptime, CONFIG.seperator);
     Ok(result)
 }

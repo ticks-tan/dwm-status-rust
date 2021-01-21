@@ -1,11 +1,11 @@
-use crate::types::Config;
+use crate::config::CONFIG;
 use dbus::blocking::stdintf::org_freedesktop_dbus::Properties;
 use dbus::{arg, blocking::Connection};
 use std::time::Duration;
 
 // getting spotify current artist and title.
 // FIXME: I know im lazy asshole, this error handling looks ugly, i dont like it too, need to fix soon.
-pub fn get_spotify(config: &Config) -> String {
+pub fn get_spotify() -> String {
     let conn = match Connection::new_session() {
         Ok(conn) => conn,
         _ => return String::from(""),
@@ -40,6 +40,6 @@ pub fn get_spotify(config: &Config) -> String {
 
     format!(
         "  {}  {} - {}  {}",
-        config.spotify.icon, artist, title, config.seperator
+        CONFIG.spotify.icon, artist, title, CONFIG.seperator
     )
 }
