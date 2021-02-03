@@ -1,16 +1,17 @@
 use crate::config::CONFIG;
-use std::fs::File;
-use std::io::Read;
+use crate::types::ThreadsData;
+use std::fs::read_to_string;
 
 /*
 mem_used = (mem_total + shmem - mem_free - mem_buffers - mem_cached - mem_srecl
 thanks for htop's developer on stackoverflow for providing this algorithm to
 calculate used memory.
 */
-pub fn get_memory() -> Result<String, std::io::Error> {
-    let mut buf = String::new();
-
-    File::open("/proc/meminfo")?.read_to_string(&mut buf)?;
+pub fn get_memory() -> ThreadsData {
+    let buf = match read_to_string("/proc/meminfo") {
+        Ok(data) => data,
+        _ => return ThreadsData::Memory(String::from("Error Reading memory!")),
+    };
 
     let mut mem_total: u32 = 0;
     let mut shmem: u32 = 0;
@@ -66,7 +67,7 @@ pub fn get_memory() -> Result<String, std::io::Error> {
             CONFIG.memory.icon, mem_used, CONFIG.seperator
         );
     }
-    Ok(result)
+    ThreadsData::Memory(result)
 }
 
 /*

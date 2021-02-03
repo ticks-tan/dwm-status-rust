@@ -1,10 +1,11 @@
 use crate::config::CONFIG;
-use std::fs::File;
-use std::io::Error;
-use std::io::Read;
+use crate::types::ThreadsData;
+use std::fs::read_to_string;
 
 // getting battery percentage
-pub fn get_battery() -> Result<String, Error> {
+pub fn get_battery() -> ThreadsData {
+    let error = ThreadsData::Battery(String::from("check your battery source name"));
+
     let battery_full_cap_file = format!(
         "/sys/class/power_supply/{}/charge_full_design",
         CONFIG.battery.source
@@ -14,17 +15,16 @@ pub fn get_battery() -> Result<String, Error> {
         CONFIG.battery.source
     );
 
-    let mut buf = String::new();
-
-    match File::open(&battery_full_cap_file) {
-        Ok(mut file) => file.read_to_string(&mut buf)?,
-        Err(_) => return Ok(String::from("check your battery source name")),
+    let buf = match read_to_string(battery_full_cap_file) {
+        Ok(file) => file,
+        Err(_) => return error,
     };
     let full_design = buf.trim().parse::<u32>().unwrap();
-    buf.clear();
 
-    // No need to error check if passed the above match
-    File::open(&battery_charge_now_file)?.read_to_string(&mut buf)?;
+    let buf = match read_to_string(&battery_charge_now_file) {
+        Ok(data) => data,
+        _ => return error,
+    };
 
     let charge_now = buf.trim().parse::<u32>().unwrap();
 
@@ -33,5 +33,5 @@ pub fn get_battery() -> Result<String, Error> {
         "  {}  {:.0}%  {}",
         CONFIG.battery.icon, battery_percentage, CONFIG.seperator
     );
-    Ok(result)
+    ThreadsData::Battery(result)
 }

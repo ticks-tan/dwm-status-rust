@@ -1,11 +1,14 @@
 use crate::config::CONFIG;
-use std::fs::File;
-use std::io::Read;
+use crate::types::ThreadsData;
+use std::fs::read_to_string;
 
 // getting cpu temperature
-pub fn get_cpu_temp() -> Result<String, std::io::Error> {
-    let mut buf = String::new();
-    File::open("/sys/class/thermal/thermal_zone0/temp")?.read_to_string(&mut buf)?;
+pub fn get_cpu_temp() -> ThreadsData {
+    let buf = match read_to_string("/sys/class/thermal/thermal_zone0/temp") {
+        Ok(data) => data,
+        _ => return ThreadsData::CpuTemp(String::from("Error reading temp")),
+    };
+
     let value = buf.trim().parse::<f32>().unwrap();
 
     let result = format!(
@@ -14,5 +17,5 @@ pub fn get_cpu_temp() -> Result<String, std::io::Error> {
         value / 1000.0,
         CONFIG.seperator
     );
-    Ok(result)
+    ThreadsData::CpuTemp(result)
 }

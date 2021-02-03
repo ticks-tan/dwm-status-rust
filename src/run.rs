@@ -5,136 +5,86 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+fn spawn_thread_loop<F>(tx: std::sync::mpsc::Sender<ThreadsData>, data: F, delay: f64)
+where
+    F: Fn() -> ThreadsData + Send + 'static,
+{
+    thread::spawn(move || loop {
+        tx.send(data()).unwrap();
+        thread::sleep(Duration::from_secs_f64(delay));
+    });
+}
+
 pub fn run(mut blocks: Blocks) {
     let (tx, rx) = mpsc::channel();
 
     // loadavrage thread
     if CONFIG.loadavg.enabled {
-        let loadavg_tx = tx.clone();
-        thread::spawn(move || loop {
-            let loadavg_data = ThreadsData::LoadAvg(load_average::get_load_avg());
-            loadavg_tx.send(loadavg_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.loadavg.delay))
-        });
+        spawn_thread_loop(tx.clone(), load_average::get_load_avg, CONFIG.loadavg.delay);
     }
     // public ip thread
     if CONFIG.pub_ip.enabled {
-        let pub_ip_tx = tx.clone();
-        thread::spawn(move || loop {
-            let pub_ip_data = ThreadsData::PubIp(pub_ip::get_pub_ip());
-            pub_ip_tx.send(pub_ip_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.pub_ip.delay))
-        });
+        spawn_thread_loop(tx.clone(), pub_ip::get_pub_ip, CONFIG.pub_ip.delay);
     }
 
     // spotify thread
     if CONFIG.spotify.enabled {
-        let spotify_tx = tx.clone();
-        thread::spawn(move || loop {
-            let spotify_data = ThreadsData::Spotify(spotify::get_spotify());
-            spotify_tx.send(spotify_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.spotify.delay))
-        });
+        spawn_thread_loop(tx.clone(), spotify::get_spotify, CONFIG.spotify.delay);
     }
 
     // mpd thread
     if CONFIG.mpd.enabled {
-        let mpd_tx = tx.clone();
-        thread::spawn(move || loop {
-            let mpd_data = ThreadsData::Mpd(mpd::get_mpd_current());
-            mpd_tx.send(mpd_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.mpd.delay))
-        });
+        spawn_thread_loop(tx.clone(), mpd::get_mpd_current, CONFIG.mpd.delay);
     }
 
     // volume thread
     if CONFIG.volume.enabled {
-        let volume_tx = tx.clone();
-        thread::spawn(move || loop {
-            let vol_data = ThreadsData::Sound(volume::get_volume());
-            volume_tx.send(vol_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.volume.delay))
-        });
-    }
-
-    // net speed thread
-    if CONFIG.netspeed.enabled {
-        let net_tx = tx.clone();
-        thread::spawn(move || loop {
-            // get_netspeed will sleep inside the function
-            let net_data = ThreadsData::NetSpeed(netspeed::get_netspeed());
-            net_tx.send(net_data).unwrap();
-        });
+        spawn_thread_loop(tx.clone(), volume::get_volume, CONFIG.volume.delay);
     }
 
     // Disk thread
     if CONFIG.disk.enabled {
-        let disk_tx = tx.clone();
-        thread::spawn(move || loop {
-            let disk_data = ThreadsData::Disk(disk::get_disk());
-            disk_tx.send(disk_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.disk.delay))
-        });
+        spawn_thread_loop(tx.clone(), disk::get_disk, CONFIG.disk.delay);
     }
 
     // Memory thread
     if CONFIG.memory.enabled {
-        let memory_tx = tx.clone();
-        thread::spawn(move || loop {
-            let memory_data = ThreadsData::Memory(memory::get_memory().unwrap());
-            memory_tx.send(memory_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.memory.delay))
-        });
+        spawn_thread_loop(tx.clone(), memory::get_memory, CONFIG.memory.delay);
     }
 
     // Weather thread
     if CONFIG.weather.enabled {
-        let weather_tx = tx.clone();
-        thread::spawn(move || loop {
-            let weather_data = ThreadsData::Weather(weather::get_weather());
-            weather_tx.send(weather_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.weather.delay))
-        });
+        spawn_thread_loop(tx.clone(), weather::get_weather, CONFIG.weather.delay);
     }
 
     // Battery thread
     if CONFIG.battery.enabled {
-        let battery_tx = tx.clone();
-        thread::spawn(move || loop {
-            let battery_data = ThreadsData::Battery(battery::get_battery().unwrap());
-            battery_tx.send(battery_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.battery.delay))
-        });
+        spawn_thread_loop(tx.clone(), battery::get_battery, CONFIG.battery.delay);
     }
 
     // Cpu temperature thread
     if CONFIG.cpu_temperature.enabled {
-        let cpu_temp_tx = tx.clone();
-        thread::spawn(move || loop {
-            let cpu_temp_data = ThreadsData::CpuTemp(cpu::get_cpu_temp().unwrap());
-            cpu_temp_tx.send(cpu_temp_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.cpu_temperature.delay))
-        });
+        spawn_thread_loop(tx.clone(), cpu::get_cpu_temp, CONFIG.cpu_temperature.delay);
     }
 
     // Uptime thread
     if CONFIG.uptime.enabled {
-        let uptime_tx = tx.clone();
+        spawn_thread_loop(tx.clone(), uptime::get_uptime, CONFIG.uptime.delay);
+    }
+
+    // net speed thread
+    // get_netspeed will sleep inside the function
+    if CONFIG.netspeed.enabled {
+        let net_tx = tx.clone();
         thread::spawn(move || loop {
-            let uptime_data = ThreadsData::Uptime(uptime::get_uptime().unwrap());
-            uptime_tx.send(uptime_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.uptime.delay))
+            let net_data = netspeed::get_netspeed();
+            net_tx.send(net_data).unwrap();
         });
     }
 
     // Time thread
     {
-        let time_tx = tx;
-        thread::spawn(move || loop {
-            let time_data = ThreadsData::Time(time::get_time());
-            time_tx.send(time_data).unwrap();
-            thread::sleep(Duration::from_secs_f64(CONFIG.time.delay))
-        });
+        spawn_thread_loop(tx, time::get_time, CONFIG.time.delay);
     }
 
     //Main
