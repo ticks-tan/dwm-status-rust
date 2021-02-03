@@ -1,13 +1,16 @@
 use crate::config::CONFIG;
+use crate::types::ThreadsData;
 use chrono::prelude::*;
 
-pub fn get_time() -> String {
+pub fn get_time() -> ThreadsData {
     let now = Local::now();
 
-    format!(
+    let data = format!(
         "  {}  {}  {}",
         CONFIG.time.icon,
         now.format(&CONFIG.time.format),
         CONFIG.seperator
-    )
+    );
+
+    ThreadsData::Time(data)
 }

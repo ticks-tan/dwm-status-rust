@@ -1,14 +1,15 @@
 use crate::config::CONFIG;
+use crate::types::ThreadsData;
 use dbus::blocking::stdintf::org_freedesktop_dbus::Properties;
 use dbus::{arg, blocking::Connection};
 use std::time::Duration;
-
 // getting spotify current artist and title.
-// FIXME: I know im lazy asshole, this error handling looks ugly, i dont like it too, need to fix soon.
-pub fn get_spotify() -> String {
+
+pub fn get_spotify() -> ThreadsData {
+    let empty_data = ThreadsData::Spotify(String::from(""));
     let conn = match Connection::new_session() {
         Ok(conn) => conn,
-        _ => return String::from(""),
+        _ => return empty_data,
     };
 
     let p = conn.with_proxy(
@@ -19,7 +20,7 @@ pub fn get_spotify() -> String {
 
     let metadata: arg::PropMap = match p.get("org.mpris.MediaPlayer2.Player", "Metadata") {
         Ok(data) => data,
-        _ => return String::from(""),
+        _ => return empty_data,
     };
 
     let title: Option<&String> = arg::prop_cast(&metadata, "xesam:title");
@@ -38,8 +39,9 @@ pub fn get_spotify() -> String {
         None => "",
     };
 
-    format!(
+    let data = format!(
         "  {}  {} - {}  {}",
         CONFIG.spotify.icon, artist, title, CONFIG.seperator
-    )
+    );
+    ThreadsData::Spotify(data)
 }

@@ -1,9 +1,10 @@
 use crate::config::CONFIG;
+use crate::types::ThreadsData;
 use std::fs::read_to_string;
 use std::thread;
 use std::time::Duration;
 
-pub fn get_netspeed() -> String {
+pub fn get_netspeed() -> ThreadsData {
     let tx1: u64 = parse_speed_file("tx_bytes");
     let rx1: u64 = parse_speed_file("rx_bytes");
     thread::sleep(Duration::from_secs(1));
@@ -16,10 +17,11 @@ pub fn get_netspeed() -> String {
     let tx = calculate(tx_bps);
     let rx = calculate(rx_bps);
 
-    format!(
+    let data = format!(
         "  {}  {}  {}  {}  {}",
         CONFIG.netspeed.recieve_icon, rx, CONFIG.netspeed.transmit_icon, tx, CONFIG.seperator
-    )
+    );
+    ThreadsData::NetSpeed(data)
 }
 
 fn parse_speed_file(pth: &str) -> u64 {

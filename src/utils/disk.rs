@@ -1,6 +1,7 @@
 use crate::config::CONFIG;
+use crate::types::ThreadsData;
 
-pub fn get_disk() -> String {
+pub fn get_disk() -> ThreadsData {
     const GB: u64 = (1024 * 1024) * 1024;
     let statvfs = nix::sys::statvfs::statvfs("/").unwrap();
     let mut disk_used = String::new();
@@ -10,8 +11,9 @@ pub fn get_disk() -> String {
     let used = total - available;
 
     disk_used.push_str(&format!("{}G", used));
-    format!(
+    let data = format!(
         "  {}  {}  {}",
         CONFIG.disk.icon, disk_used, CONFIG.seperator
-    )
+    );
+    ThreadsData::Disk(data)
 }
