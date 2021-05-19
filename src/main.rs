@@ -2,12 +2,17 @@ mod config;
 mod run;
 mod types;
 mod utils;
+mod blockmanager;
+
 use std::env;
 use std::process;
 
+use blockmanager::BlockManager;
+
 use lazy_static::initialize;
 
-fn main() {
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     initialize(&config::CONFIG);
 
@@ -17,6 +22,7 @@ fn main() {
         process::exit(1);
     };
 
-    let blocks = types::Blocks::new();
-    run::run(blocks);
+    let blocks = BlockManager::new();
+    run::run(blocks).await;
+    Ok(())
 }
