@@ -15,7 +15,7 @@ impl Default for Brightness {
             icon: String::from(""),
             enabled: false,
             delay: 120.0,
-            path: String::from("/sys/class/backlight/intel_backlight"),
+            path: String::from("/sys/class/backlight/amdgpu_bl0"),
         }
     }
 }

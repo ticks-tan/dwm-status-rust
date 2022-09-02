@@ -11,14 +11,16 @@ description = "a multi threaded status bar for dwm window manager for linux"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-alsa = "0.5"
+alsa = "0.6.0"
 chrono = "0.4"
 mpd = "0.0.12"
-nix = "0.22"
+nix = "0.25.0"
 battery = "0.7"
 dbus = "0.9"
-serde_yaml = "0.8.20"
+serde_yaml = "0.9.10"
 lazy_static = "1.4.0"
+inotify = "0.10.0"
+exec = "0.3.1"
 
 # Async deps
 futures = "0.3.15"
