@@ -1,7 +1,6 @@
-# rsblocks
-[<img alt="github" src="https://img.shields.io/static/v1?label=github&message=rsblocks&color=acb0d0&logo=Github&style=flat-square&logoColor=a9b1d6" height="20">](https://github.com/MustafaSalih1993/rsblocks)
-[<img alt="crates" src="https://img.shields.io/crates/v/rsblocks?logo=rust&logoColor=a9b1d6&style=flat-square&color=fc8d62" height="20">](https://crates.io/crates/rsblocks)
+# dwm-status-rust
 
+**!!! This project clone [rsblocks](https://github.com/MustafaSalih1993/rsblocks) ，add some new education, update irregular !**
 
 A status bar for dwm window manager written in **Rust** 🦀
 <p>
@@ -27,43 +26,31 @@ A status bar for dwm window manager written in **Rust** 🦀
 * Uptime
 * Weather Temperature
 * Easy to configure with `rsblocks.yml` file
+* Restart after config file modified [New]
 
 
 ## Notes
 * This tool is still in development stage.
-* currently supports only linux.
+* supports only linux.
 
-
-## Build Requirements
-* [Libdbus](https://dbus.freedesktop.org/releases/dbus/) 1.6 or higher as a requirement to spotify.
-
-On ubuntu you can do:
-```sh
-sudo apt install libdbus-1-dev pkg-config
-```
-
-
-## Cargo Installation
-You can install the binary crate directly
-```sh
-cargo install rsblocks
-```
 
 ## Manual Installation
 You can clone the repo and build from the source code
 ```sh
-git clone https://github.com/mustafasalih1993/rsblocks
+git clone https://github.com/ticks-tan/dwm-status-rust.git
 ```
 build with **cargo**
 ```sh
+cargo check
 cargo build --release
 ```
 move the executable somewhere in your **PATH** (assuming you are in the root dir of the project)
 ```sh
+# a simple example
 mv ./target/release/rsblocks /usr/local/bin
 ```
 
-you good to go now and can run `rsblocks` from your terminal or put that in your `.xinitrc`
+then you good to go now and can run `rsblocks` from your terminal or put that in your `.xinitrc`
 
 ## Configuration
 #### Notes:
